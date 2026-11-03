@@ -1,0 +1,877 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoleName {
+  SUPER_ADMIN
+  ADMIN
+  DIRECTOR
+  ACCOUNTS_FINANCE
+  DATA_ENTRY
+  VIEWER_AUDITOR
+}
+
+enum UserInvitationStatus {
+  PENDING
+  ACCEPTED
+  REVOKED
+  EXPIRED
+}
+
+enum EntryType {
+  OTC
+  DOCTOR_PRESCRIBED_MEDICINE
+}
+
+enum ItemType {
+  MEDICINE
+  OTC
+}
+
+enum CardMembershipType {
+  GREEN_CARD
+  GOLDEN_CARD
+  OTHER
+}
+
+enum ExpenseOwnerType {
+  COMPANY
+  BRANCH
+}
+
+enum PaymentMethod {
+  CASH
+  ONLINE
+}
+
+enum Month {
+  JANUARY
+  FEBRUARY
+  MARCH
+  APRIL
+  MAY
+  JUNE
+  JULY
+  AUGUST
+  SEPTEMBER
+  OCTOBER
+  NOVEMBER
+  DECEMBER
+}
+
+enum ServiceType {
+  CONSULTATION
+  THERAPY
+  OTHER
+}
+
+enum PatientType {
+  OPD
+  IPD
+}
+
+enum FilledBy {
+  PATIENT_SELF
+  STAFF
+}
+
+model Role {
+  id          String           @id @default(cuid())
+  name        RoleName         @unique
+  users       User[]
+  invitations UserInvitation[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model Branch {
+  id                    String                       @id @default(cuid())
+  name                  String                       @unique
+  code                  String                       @unique
+  isActive              Boolean                      @default(true)
+  userBranches          UserBranch[]
+  invitationBranches    InvitationBranch[]
+  sales                 Sale[]
+  serviceSales          ServiceSale[]
+  patientVisits         PatientVisit[]
+  feedback              FeedbackEntry[]
+  coreInvestments       CoreInvestment[]
+  branchSalaries        BranchSalary[]
+  branchRents           BranchRent[]
+  waterBills            BranchWaterBill[]
+  powerBills            BranchPowerBill[]
+  foodGroceries         BranchFoodGroceries[]
+  governmentFees        BranchGovernmentFee[]
+  investmentPurchases   BranchInvestmentPurchase[]
+  miscellaneousExpenses BranchMiscellaneousExpense[]
+  createdAt             DateTime                     @default(now())
+  updatedAt             DateTime                     @updatedAt
+
+  @@index([isActive])
+}
+
+model User {
+  id                     String               @id @default(cuid())
+  name                   String
+  email                  String               @unique
+  passwordHash           String
+  roleId                 String
+  isActive               Boolean              @default(true)
+  isVerified             Boolean              @default(true)
+  lastLoginAt            DateTime?
+  mobileNumber           String?              @db.VarChar(30)
+  role                   Role                 @relation(fields: [roleId], references: [id])
+  branches               UserBranch[]
+  permissions            UserPermission[]
+  refreshTokens          RefreshToken[]
+  auditLogs              AuditLog[]
+  sentInvitations        UserInvitation[]     @relation("InvitationInviter")
+  acceptedInvitations    UserInvitation[]     @relation("InvitationAcceptedUser")
+  passwordResetTokens    PasswordResetToken[]
+  directorSalaryPayments DirectorSalary[]
+  dailyDataReminderDeliveries DailyDataReminderDelivery[]
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+
+  @@index([roleId])
+  @@index([isActive])
+}
+
+model UserInvitation {
+  id                   String               @id @default(cuid())
+  invitedName          String               @db.VarChar(160)
+  email                String               @db.VarChar(255)
+  tokenHash            String               @unique @db.Char(64)
+  status               UserInvitationStatus @default(PENDING)
+  roleId               String
+  invitedById          String
+  acceptedUserId       String?              @unique
+  expiresAt            DateTime
+  lastSentAt           DateTime?
+  acceptedAt           DateTime?
+  revokedAt            DateTime?
+  expiryEmailSentAt    DateTime?
+  expiryEmailClaimedAt DateTime?
+  expiryEmailAttempts  Int                  @default(0)
+  lastEmailError       String?              @db.VarChar(500)
+  role                 Role                 @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  invitedBy            User                 @relation("InvitationInviter", fields: [invitedById], references: [id], onDelete: Restrict)
+  acceptedUser         User?                @relation("InvitationAcceptedUser", fields: [acceptedUserId], references: [id], onDelete: SetNull)
+  branches             InvitationBranch[]
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  @@index([email, status])
+  @@index([status, expiresAt])
+  @@index([invitedById, createdAt])
+  @@index([status, expiryEmailSentAt, expiryEmailClaimedAt])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique @db.Char(64)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@index([expiresAt])
+}
+
+model InvitationBranch {
+  invitationId String
+  branchId     String
+  invitation   UserInvitation @relation(fields: [invitationId], references: [id], onDelete: Cascade)
+  branch       Branch         @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  createdAt    DateTime       @default(now())
+
+  @@id([invitationId, branchId])
+  @@index([branchId])
+}
+
+model UserBranch {
+  userId    String
+  branchId  String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([userId, branchId])
+  @@index([branchId])
+}
+
+model DailyDataReminderDelivery {
+  id          String   @id @default(cuid())
+  userId      String
+  businessDate String  @db.VarChar(10)
+  claimedAt   DateTime?
+  sentAt      DateTime?
+  attempts    Int      @default(0)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, businessDate])
+  @@index([businessDate, sentAt])
+}
+
+model Permission {
+  id          String           @id @default(cuid())
+  key         String           @unique
+  name        String           @db.VarChar(160)
+  description String?          @db.VarChar(500)
+  users       UserPermission[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model UserPermission {
+  userId       String
+  permissionId String
+  grantedById  String
+  grantedAt    DateTime   @default(now())
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([userId, permissionId])
+  @@index([permissionId])
+  @@index([grantedById])
+}
+
+model RefreshToken {
+  id                String    @id @default(cuid())
+  userId            String
+  tokenHash         String    @unique
+  expiresAt         DateTime
+  revokedAt         DateTime?
+  replacedByTokenId String?
+  userAgent         String?   @db.VarChar(512)
+  ipAddress         String?   @db.VarChar(64)
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt         DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([revokedAt])
+}
+
+model Item {
+  id        String     @id @default(cuid())
+  name      String
+  type      ItemType
+  isActive  Boolean    @default(true)
+  saleItems SaleItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@unique([name, type])
+  @@index([isActive])
+  @@index([name])
+}
+
+model Service {
+  id           String        @id @default(cuid())
+  name         String        @unique
+  type         ServiceType
+  isActive     Boolean       @default(true)
+  serviceSales ServiceSale[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([type])
+  @@index([isActive])
+}
+
+model Sale {
+  id             String     @id @default(cuid())
+  date           DateTime   @db.Date
+  branchId       String
+  entryType      EntryType
+  subtotal       Decimal    @db.Decimal(12, 2)
+  gstPercentage  Decimal    @db.Decimal(5, 2)
+  gstAmount      Decimal    @db.Decimal(12, 2)
+  sgstPercentage Decimal    @db.Decimal(5, 2)
+  sgstAmount     Decimal    @db.Decimal(12, 2)
+  cgstPercentage Decimal    @default(0) @db.Decimal(5, 2)
+  cgstAmount     Decimal    @default(0) @db.Decimal(12, 2)
+  totalAmount    Decimal    @db.Decimal(12, 2)
+  branch         Branch     @relation(fields: [branchId], references: [id])
+  items          SaleItem[]
+  createdById    String
+  updatedById    String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([date])
+  @@index([branchId, date])
+  @@index([entryType, date])
+}
+
+model SaleItem {
+  id               String   @id @default(cuid())
+  sale             Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  saleId           String
+  item             Item     @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  itemId           String
+  itemNameSnapshot String
+  unitSold         Int
+  unitPrice        Decimal  @db.Decimal(12, 2)
+  totalPrice       Decimal  @db.Decimal(12, 2)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([saleId])
+  @@index([itemId])
+}
+
+model ServiceSale {
+  id                  String      @id @default(cuid())
+  date                DateTime    @db.Date
+  branchId            String
+  branch              Branch      @relation(fields: [branchId], references: [id])
+  service             Service?    @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  serviceId           String?
+  serviceType         ServiceType
+  serviceNameSnapshot String
+  amount              Decimal     @db.Decimal(12, 2)
+  createdById         String
+  updatedById         String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([date])
+  @@index([branchId, date])
+}
+
+model PatientVisit {
+  id               String   @id @default(cuid())
+  date             DateTime @db.Date
+  branchId         String
+  newPatients      Int
+  followupPatients Int
+  branch           Branch   @relation(fields: [branchId], references: [id])
+  createdById      String
+  updatedById      String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([date])
+  @@index([branchId, date])
+}
+
+model FeedbackEntry {
+  id                  String      @id @default(cuid())
+  date                DateTime    @db.Date
+  branchId            String
+  doctor              String      @db.VarChar(160)
+  service             String      @db.VarChar(160)
+  patientType         PatientType
+  filledBy            FilledBy
+  frontdeskRating     Int
+  posttreatmentRating Int
+  comments            String?     @db.Text
+  branch              Branch      @relation(fields: [branchId], references: [id])
+  createdById         String
+  updatedById         String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([date])
+  @@index([branchId, date])
+}
+
+// â”€â”€ Masters (Settings) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+model CourseDoctor {
+  id          String       @id @default(cuid())
+  name        String       @unique @db.VarChar(160)
+  isActive    Boolean      @default(true)
+  courses     Course[]
+  courseSales CourseSale[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([isActive])
+  @@index([name])
+}
+
+model Course {
+  id             String       @id @default(cuid())
+  name           String       @unique @db.VarChar(160)
+  courseDoctorId String
+  courseDoctor   CourseDoctor @relation(fields: [courseDoctorId], references: [id])
+  isActive       Boolean      @default(true)
+  sales          CourseSale[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([isActive])
+  @@index([name])
+  @@index([courseDoctorId])
+}
+
+model CardType {
+  id           String     @id @default(cuid())
+  name         String     @unique @db.VarChar(160)
+  defaultPrice Decimal    @db.Decimal(12, 2)
+  isActive     Boolean    @default(true)
+  sales        CardSale[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([isActive])
+  @@index([name])
+}
+
+model Loan {
+  id             String          @id @default(cuid())
+  name           String          @unique @db.VarChar(160)
+  originalAmount Decimal         @db.Decimal(14, 2)
+  isActive       Boolean         @default(true)
+  repayments     LoanRepayment[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([isActive])
+  @@index([name])
+}
+
+model LegacyDirector {
+  id        String           @id @default(cuid())
+  name      String           @unique @db.VarChar(160)
+  isActive  Boolean          @default(true)
+  salaries  DirectorSalary[]
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@index([isActive])
+  @@index([name])
+  @@map("Director")
+}
+
+// â”€â”€ Data entry: course & card sales (no branch scope) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+model CourseSale {
+  id              String             @id @default(cuid())
+  courseId        String
+  course          Course             @relation(fields: [courseId], references: [id])
+  courseDoctorId  String
+  courseDoctor    CourseDoctor       @relation(fields: [courseDoctorId], references: [id])
+  purchaseDate    DateTime           @db.Date
+  numberOfCourses Int
+  pricePerCourse  Decimal            @db.Decimal(12, 2)
+  discount        Decimal            @default(0) @db.Decimal(12, 2)
+  totalAmount     Decimal            @db.Decimal(12, 2)
+  customerId      String             @db.VarChar(160)
+  membershipType  CardMembershipType
+  createdById     String
+  updatedById     String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([purchaseDate])
+  @@index([courseId])
+  @@index([courseDoctorId])
+}
+
+model CardSale {
+  id            String   @id @default(cuid())
+  date          DateTime @db.Date
+  cardTypeId    String
+  cardType      CardType @relation(fields: [cardTypeId], references: [id])
+  cardPrice     Decimal  @db.Decimal(12, 2)
+  numberOfCards Int
+  totalAmount   Decimal  @db.Decimal(12, 2)
+  createdById   String
+  updatedById   String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([date])
+  @@index([cardTypeId])
+}
+
+// â”€â”€ Expenses â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+model CoreInvestment {
+  id          String           @id @default(cuid())
+  itemName    String           @db.VarChar(160)
+  invoiceId   String           @db.VarChar(80)
+  price       Decimal          @db.Decimal(12, 2)
+  billingDate DateTime         @db.Date
+  paymentDate DateTime         @db.Date
+  gst         Decimal          @default(0) @db.Decimal(5, 2)
+  sgst        Decimal          @default(0) @db.Decimal(5, 2)
+  gstAmount   Decimal          @default(0) @db.Decimal(12, 2)
+  sgstAmount  Decimal          @default(0) @db.Decimal(12, 2)
+  totalAmount Decimal          @default(0) @db.Decimal(12, 2)
+  belongsTo   ExpenseOwnerType
+  branchId    String?
+  branch      Branch?          @relation(fields: [branchId], references: [id])
+  createdById String
+  updatedById String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([paymentDate])
+  @@index([belongsTo])
+  @@index([branchId])
+}
+
+model MedicinePurchase {
+  id          String   @id @default(cuid())
+  invoiceId   String   @db.VarChar(80)
+  price       Decimal  @db.Decimal(12, 2)
+  billingDate DateTime @db.Date
+  paymentDate DateTime @db.Date
+  gst         Decimal  @default(0) @db.Decimal(5, 2)
+  sgst        Decimal  @default(0) @db.Decimal(5, 2)
+  gstAmount   Decimal  @default(0) @db.Decimal(12, 2)
+  sgstAmount  Decimal  @default(0) @db.Decimal(12, 2)
+  totalAmount Decimal  @default(0) @db.Decimal(12, 2)
+  createdById String
+  updatedById String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([paymentDate])
+  @@index([invoiceId])
+}
+
+model MarketingExpense {
+  id           String   @id @default(cuid())
+  companyName  String   @db.VarChar(160)
+  invoiceId    String   @db.VarChar(80)
+  price        Decimal  @db.Decimal(12, 2)
+  billingDate  DateTime @db.Date
+  paymentDate  DateTime @db.Date
+  gst          Decimal  @default(0) @db.Decimal(5, 2)
+  sgst         Decimal  @default(0) @db.Decimal(5, 2)
+  gstAmount    Decimal  @default(0) @db.Decimal(12, 2)
+  sgstAmount   Decimal  @default(0) @db.Decimal(12, 2)
+  totalAmount  Decimal  @default(0) @db.Decimal(12, 2)
+  expenseMonth Month
+  expenseYear  Int
+  createdById  String
+  updatedById  String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([paymentDate])
+  @@index([expenseYear, expenseMonth])
+}
+
+model CsrFund {
+  id                   String  @id @default(cuid())
+  month                Month
+  year                 Int
+  lastMonthTotalIncome Decimal @db.Decimal(14, 2)
+  percentage           Decimal @db.Decimal(5, 2)
+  amount               Decimal @db.Decimal(14, 2)
+  createdById          String
+  updatedById          String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([year, month])
+  @@index([year])
+}
+
+model LoanRepayment {
+  id              String  @id @default(cuid())
+  loanId          String
+  loan            Loan    @relation(fields: [loanId], references: [id])
+  month           Month
+  year            Int
+  repaymentAmount Decimal @db.Decimal(14, 2)
+  createdById     String
+  updatedById     String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([loanId])
+  @@index([year, month])
+}
+
+model AdvanceTax {
+  id          String  @id @default(cuid())
+  month       Month
+  year        Int
+  amountPaid  Decimal @db.Decimal(14, 2)
+  createdById String
+  updatedById String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([year, month])
+}
+
+model OtherExpense {
+  id          String   @id @default(cuid())
+  itemName    String   @db.VarChar(160)
+  invoiceId   String   @db.VarChar(80)
+  price       Decimal  @db.Decimal(12, 2)
+  billingDate DateTime @db.Date
+  paymentDate DateTime @db.Date
+  gst         Decimal  @default(0) @db.Decimal(5, 2)
+  sgst        Decimal  @default(0) @db.Decimal(5, 2)
+  gstAmount   Decimal  @default(0) @db.Decimal(12, 2)
+  sgstAmount  Decimal  @default(0) @db.Decimal(12, 2)
+  totalAmount Decimal  @default(0) @db.Decimal(12, 2)
+  year        Int
+  createdById String
+  updatedById String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([paymentDate])
+  @@index([year])
+}
+
+model DirectorSalary {
+  id                   String          @id @default(cuid())
+  month                Month
+  year                 Int
+  directorId           String?
+  director             LegacyDirector? @relation(fields: [directorId], references: [id])
+  directorUserId       String?
+  directorUser         User?           @relation(fields: [directorUserId], references: [id], onDelete: SetNull)
+  directorNameSnapshot String?         @db.VarChar(160)
+  amount               Decimal         @db.Decimal(14, 2)
+  createdById          String
+  updatedById          String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([year, month])
+  @@index([directorId])
+  @@index([directorUserId])
+}
+
+model CompanyMiscellaneousExpense {
+  id            String        @id @default(cuid())
+  itemName      String        @db.VarChar(160)
+  voucherId     String        @db.VarChar(80)
+  price         Decimal       @db.Decimal(12, 2)
+  date          DateTime      @db.Date
+  gst           Decimal       @default(0) @db.Decimal(5, 2)
+  sgst          Decimal       @default(0) @db.Decimal(5, 2)
+  gstAmount     Decimal       @default(0) @db.Decimal(12, 2)
+  sgstAmount    Decimal       @default(0) @db.Decimal(12, 2)
+  totalAmount   Decimal       @default(0) @db.Decimal(12, 2)
+  paymentMethod PaymentMethod
+  createdById   String
+  updatedById   String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([date])
+  @@index([voucherId])
+}
+
+model BranchSalary {
+  id           String   @id @default(cuid())
+  branchId     String
+  branch       Branch   @relation(fields: [branchId], references: [id])
+  personName   String   @db.VarChar(160)
+  role         String   @db.VarChar(160)
+  month        Month
+  year         Int
+  salary       Decimal  @db.Decimal(14, 2)
+  dateCredited DateTime @db.Date
+  totalAmount  Decimal  @db.Decimal(14, 2)
+  createdById  String
+  updatedById  String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([branchId, year, month])
+  @@index([dateCredited])
+}
+
+model BranchRent {
+  id            String   @id @default(cuid())
+  branchId      String
+  branch        Branch   @relation(fields: [branchId], references: [id])
+  month         Month
+  year          Int
+  invoiceId     String   @db.VarChar(80)
+  rentAmount    Decimal  @db.Decimal(14, 2)
+  tdsPercentage Decimal  @db.Decimal(5, 2)
+  tdsDeduction  Decimal  @db.Decimal(14, 2)
+  netAmount     Decimal  @db.Decimal(14, 2)
+  createdById   String
+  updatedById   String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([branchId, year, month])
+  @@index([invoiceId])
+}
+
+model BranchWaterBill {
+  id           String   @id @default(cuid())
+  branchId     String
+  branch       Branch   @relation(fields: [branchId], references: [id])
+  amount       Decimal  @db.Decimal(14, 2)
+  billId       String   @db.VarChar(80)
+  paidDate     DateTime @db.Date
+  assignedDate DateTime @db.Date
+  month        Month
+  year         Int
+  createdById  String
+  updatedById  String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([branchId, year, month])
+  @@index([paidDate])
+}
+
+model BranchPowerBill {
+  id           String   @id @default(cuid())
+  branchId     String
+  branch       Branch   @relation(fields: [branchId], references: [id])
+  amount       Decimal  @db.Decimal(14, 2)
+  billId       String   @db.VarChar(80)
+  assignedDate DateTime @db.Date
+  paidDate     DateTime @db.Date
+  month        Month
+  year         Int
+  createdById  String
+  updatedById  String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([branchId, year, month])
+  @@index([paidDate])
+}
+
+model BranchFoodGroceries {
+  id          String   @id @default(cuid())
+  branchId    String
+  branch      Branch   @relation(fields: [branchId], references: [id])
+  invoiceId   String   @db.VarChar(80)
+  amount      Decimal  @db.Decimal(14, 2)
+  date        DateTime @db.Date
+  month       Month
+  year        Int
+  totalAmount Decimal  @db.Decimal(14, 2)
+  createdById String
+  updatedById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([branchId, year, month])
+  @@index([date])
+}
+
+model BranchGovernmentFee {
+  id          String   @id @default(cuid())
+  branchId    String
+  branch      Branch   @relation(fields: [branchId], references: [id])
+  itemName    String   @db.VarChar(160)
+  invoiceId   String   @db.VarChar(80)
+  price       Decimal  @db.Decimal(12, 2)
+  date        DateTime @db.Date
+  gst         Decimal  @default(0) @db.Decimal(5, 2)
+  sgst        Decimal  @default(0) @db.Decimal(5, 2)
+  gstAmount   Decimal  @default(0) @db.Decimal(12, 2)
+  sgstAmount  Decimal  @default(0) @db.Decimal(12, 2)
+  year        Int
+  totalAmount Decimal  @default(0) @db.Decimal(12, 2)
+  createdById String
+  updatedById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([branchId, year])
+  @@index([date])
+}
+
+model BranchInvestmentPurchase {
+  id          String   @id @default(cuid())
+  branchId    String
+  branch      Branch   @relation(fields: [branchId], references: [id])
+  itemName    String   @db.VarChar(160)
+  invoiceId   String   @db.VarChar(80)
+  price       Decimal  @db.Decimal(12, 2)
+  date        DateTime @db.Date
+  gst         Decimal  @default(0) @db.Decimal(5, 2)
+  sgst        Decimal  @default(0) @db.Decimal(5, 2)
+  gstAmount   Decimal  @default(0) @db.Decimal(12, 2)
+  sgstAmount  Decimal  @default(0) @db.Decimal(12, 2)
+  year        Int
+  totalAmount Decimal  @default(0) @db.Decimal(12, 2)
+  createdById String
+  updatedById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([branchId, year])
+  @@index([date])
+}
+
+model BranchMiscellaneousExpense {
+  id            String        @id @default(cuid())
+  branchId      String
+  branch        Branch        @relation(fields: [branchId], references: [id])
+  itemName      String        @db.VarChar(160)
+  voucherId     String        @db.VarChar(80)
+  price         Decimal       @db.Decimal(12, 2)
+  date          DateTime      @db.Date
+  gst           Decimal       @default(0) @db.Decimal(5, 2)
+  sgst          Decimal       @default(0) @db.Decimal(5, 2)
+  gstAmount     Decimal       @default(0) @db.Decimal(12, 2)
+  sgstAmount    Decimal       @default(0) @db.Decimal(12, 2)
+  paymentMethod PaymentMethod
+  year          Int
+  totalAmount   Decimal       @default(0) @db.Decimal(12, 2)
+  createdById   String
+  updatedById   String
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([branchId, year])
+  @@index([date])
+  @@index([voucherId])
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  userId       String?
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action       String   @db.VarChar(120)
+  resourceType String   @db.VarChar(80)
+  resourceId   String?  @db.VarChar(191)
+  metadata     Json?
+  ipAddress    String?  @db.VarChar(64)
+  userAgent    String?  @db.VarChar(512)
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+  @@index([resourceType, resourceId(length: 128)])
+  @@index([createdAt])
+}
