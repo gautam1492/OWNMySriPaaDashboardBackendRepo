@@ -1,5 +1,6 @@
 import { env } from "../../config/env.js";
 import { sendEmail } from "../../config/email.js";
+import { emailBrandHeader } from "../../utils/emailBranding.js";
 
 export type InvitationEmailDetails = {
     invitedName: string;
@@ -34,7 +35,7 @@ function formatExpiry(date: Date) {
 }
 
 function shell(title: string, body: string) {
-    return `<!doctype html><html><body style="margin:0;background:#f5f7f4;font-family:Arial,sans-serif;color:#263329"><div style="max-width:600px;margin:32px auto;background:#fff;border:1px solid #e2e8df;border-radius:16px;overflow:hidden"><div style="padding:24px 28px;background:#f3f6ef;border-bottom:1px solid #e5eadd"><strong style="font-size:20px;color:#49632d">SriPAA Growth System</strong></div><div style="padding:28px">${body}</div><div style="padding:18px 28px;border-top:1px solid #edf0e9;color:#718071;font-size:12px">This is an automated account notification.</div></div></body></html>`;
+    return `<!doctype html><html><body style="margin:0;padding:24px 12px;background:#f2f5ef;font-family:Arial,sans-serif;color:#263329"><div style="max-width:600px;margin:0 auto;background:#fff;border:1px solid #e2e9dd;border-radius:16px;overflow:hidden">${emailBrandHeader()}<div style="padding:28px">${body}</div><div style="padding:18px 28px;border-top:1px solid #edf0e9;color:#718071;font-size:12px">This is an automated account notification.</div></div></body></html>`;
 }
 
 function branchList(branchNames: string[]) {
