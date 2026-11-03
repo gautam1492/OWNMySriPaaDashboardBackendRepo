@@ -54,7 +54,7 @@ Copy `.env.example` to `.env`. Keep credentials in deployment secrets and never 
 | `DAILY_DATA_REMINDER_TIME`, `BUSINESS_TIMEZONE`   | Schedule and timezone for missing daily-entry reminders.                                                         |
 | `COOKIE_SECURE`, `COOKIE_SAME_SITE`               | Browser cookie policy. Production requires Secure; separate-site deployments use `SameSite=None` and HTTPS.      |
 | `LOG_LEVEL`                                       | Pino log threshold. Sensitive request data and raw exception messages are excluded from application logs.        |
-| `SEED_*_PASSWORD`                                 | Development-only seed account passwords, at least 12 characters.                                                 |
+| `SEED_*_PASSWORD`                                 | Development-only seed account passwords, at least 8 characters.                                                  |
 
 ## Scripts
 

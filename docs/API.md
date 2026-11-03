@@ -45,7 +45,7 @@ Tokens are not returned in response JSON. Refresh tokens are rotated on use. Reu
 
 `POST /auth/login` validates a syntactically valid email (max 255 characters) and password (8–128 characters). The application allows JSON bodies up to 1 MB and CORS is configured for the origins listed in `CORS_ORIGIN` with credentials enabled. The `/api/v1/auth` group is rate limited to 30 requests per 15-minute window per client IP.
 
-Password reset additionally limits `/auth/forgot-password` and `/auth/reset-password` to five requests per 15-minute window per client IP. Reset tokens are one-time use and expire after 30 minutes. `POST /auth/forgot-password` returns a distinct message/status for an unknown email or an account that is inactive/unverified; it does not send an email for those cases. Reset passwords require 12–128 characters and matching `password` and `confirmPassword` values. A successful reset invalidates existing sessions.
+Password reset additionally limits `/auth/forgot-password` and `/auth/reset-password` to five requests per 15-minute window per client IP. Reset tokens are one-time use and expire after 30 minutes. `POST /auth/forgot-password` returns a distinct message/status for an unknown email or an account that is inactive/unverified; it does not send an email for those cases. Reset passwords require 8–128 characters and matching `password` and `confirmPassword` values. A successful reset invalidates existing sessions.
 
 ## Roles, permissions, and branch scope
 

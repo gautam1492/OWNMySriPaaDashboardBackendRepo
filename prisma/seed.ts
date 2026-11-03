@@ -12,9 +12,9 @@ if (process.env.NODE_ENV === "production") {
 
 function requiredDemoPassword(key: string) {
     const password = process.env[key];
-    if (!password || password.length < 12) {
+    if (!password || password.length < 8) {
         throw new Error(
-            `${key} must be set to a password of at least 12 characters to seed demo users.`,
+            `${key} must be set to a password of at least 8 characters to seed demo users.`,
         );
     }
     return password;
@@ -40,7 +40,7 @@ const TEST_USERS = [
         email: "director@sripaa.local",
         password: requiredDemoPassword("SEED_DIRECTOR_PASSWORD"),
         role: ROLES.DIRECTOR,
-        branchCodes: [],
+        branchCodes: ["BLR", "DVG"],
     },
     {
         name: "Finance User",
@@ -107,6 +107,7 @@ async function main() {
                 passwordHash: await bcrypt.hash(testUser.password, 12),
                 roleId: role.id,
                 isActive: true,
+                isVerified: true,
             },
             create: {
                 name: testUser.name,
@@ -114,6 +115,7 @@ async function main() {
                 passwordHash: await bcrypt.hash(testUser.password, 12),
                 roleId: role.id,
                 isActive: true,
+                isVerified: true,
             },
         });
         users.set(testUser.role, user);

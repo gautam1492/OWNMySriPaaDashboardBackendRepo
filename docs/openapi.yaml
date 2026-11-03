@@ -159,8 +159,8 @@ paths:
                             required: [token, password, confirmPassword]
                             properties:
                                 token: { type: string, minLength: 40, maxLength: 100 }
-                                password: { type: string, minLength: 12, maxLength: 128 }
-                                confirmPassword: { type: string, minLength: 12, maxLength: 128 }
+                                password: { type: string, minLength: 8, maxLength: 128 }
+                                confirmPassword: { type: string, minLength: 8, maxLength: 128 }
             responses:
                 "200":
                     description: Password updated; the user may sign in.

@@ -17,8 +17,8 @@ export const forgotPasswordSchema = z.object({
 export const resetPasswordSchema = z
     .object({
         token: z.string().min(40).max(100),
-        password: z.string().min(12).max(128),
-        confirmPassword: z.string().min(12).max(128),
+        password: z.string().min(8).max(128),
+        confirmPassword: z.string().min(8).max(128),
     })
     .refine((value) => value.password === value.confirmPassword, {
         path: ["confirmPassword"],

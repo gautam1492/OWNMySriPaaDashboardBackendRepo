@@ -1,5 +1,4 @@
 import "dotenv/config";
-import "dotenv/config";
 import {
     CardMembershipType,
     EntryType,
@@ -136,7 +135,7 @@ async function seedCatalogues() {
         ITEMS.map((item) =>
             prisma.item.upsert({
                 where: { name_type: { name: item.name, type: item.type } },
-                update: {},
+                update: { isActive: true },
                 create: { name: item.name, type: item.type, isActive: true },
             }),
         ),
@@ -145,7 +144,7 @@ async function seedCatalogues() {
         SERVICES.map((service) =>
             prisma.service.upsert({
                 where: { name: service.name },
-                update: {},
+                update: { isActive: true },
                 create: { ...service, isActive: true },
             }),
         ),
@@ -155,7 +154,7 @@ async function seedCatalogues() {
         COURSE_DOCTORS.map((name) =>
             prisma.courseDoctor.upsert({
                 where: { name },
-                update: {},
+                update: { isActive: true },
                 create: { name, isActive: true },
             }),
         ),
@@ -164,7 +163,10 @@ async function seedCatalogues() {
         COURSE_NAMES.map((name, index) =>
             prisma.course.upsert({
                 where: { name },
-                update: {},
+                update: {
+                    isActive: true,
+                    courseDoctorId: courseDoctors[index % courseDoctors.length].id,
+                },
                 create: {
                     name,
                     courseDoctorId: courseDoctors[index % courseDoctors.length].id,
@@ -177,7 +179,7 @@ async function seedCatalogues() {
         CARD_TYPES.map((cardType) =>
             prisma.cardType.upsert({
                 where: { name: cardType.name },
-                update: {},
+                update: { defaultPrice: cardType.defaultPrice, isActive: true },
                 create: { ...cardType, isActive: true },
             }),
         ),
@@ -186,7 +188,7 @@ async function seedCatalogues() {
         LOANS.map((loan) =>
             prisma.loan.upsert({
                 where: { name: loan.name },
-                update: {},
+                update: { ...loan, isActive: true },
                 create: { ...loan, isActive: true },
             }),
         ),
