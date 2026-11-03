@@ -1,4 +1,4 @@
-import "./types/express.d.ts";
+
 import express from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
@@ -22,35 +22,37 @@ export const app = express();
 app.disable("x-powered-by");
 app.use(helmet());
 app.use(cors({ origin: corsOrigins, credentials: true }));
+
 const allowedOrigins = new Set(corsOrigins);
+
 app.use((req, _res, next) => {
     const origin = req.get("origin");
     const isMutation = ["POST", "PUT", "PATCH", "DELETE"].includes(req.method);
+
     if (isMutation && origin && !allowedOrigins.has(origin)) {
         return next(new ApiError(HTTP_STATUS.FORBIDDEN, "Request origin is not allowed."));
     }
+
     next();
 });
+
 app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
 
 app.use(requestId);
+
 app.use(
     pinoHttp({
         logger,
         genReqId: (req) => req.id,
-        // Only log requests with client/server errors (4xx/5xx), not every successful request
         customLogLevel: (req, res, err) => {
             if (err) return "error";
             if (res.statusCode >= 400) return "warn";
             return "silent";
         },
-        // Log only the request path and non-sensitive diagnostic headers.
         serializers: {
             req: (req) => ({
                 method: req.method,
-                // pino-http passes the raw Node request here, not Express's request wrapper;
-                // use `url` and omit query strings so the serializer cannot throw or log secrets.
                 url: String(req.url ?? "/")
                     .split("?", 1)[0]
                     .replace(/(\/(?:user-)?invitations\/)[^/]+/gi, "$1[redacted]"),
@@ -70,6 +72,7 @@ app.use(
         },
     }),
 );
+
 app.use(
     "/api/v1/auth",
     rateLimit({
@@ -90,6 +93,7 @@ app.get("/health/ready", async (_req, res) => {
         return res.json({ success: true, status: "ready", database: "up" });
     } catch (error) {
         logger.error(safeErrorMetadata(error), "Readiness check failed: database unreachable");
+
         return res.status(HTTP_STATUS.SERVICE_UNAVAILABLE).json({
             success: false,
             status: "degraded",
