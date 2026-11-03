@@ -1,21 +1,5 @@
-import nodemailer from "nodemailer";
 import { env } from "../../config/env.js";
-
-const transporter = nodemailer.createTransport({
-    host: env.SMTP_HOST,
-    port: env.SMTP_PORT,
-    secure: env.SMTP_SECURE,
-    ...(env.SMTP_USER && env.SMTP_PASSWORD
-        ? { auth: { user: env.SMTP_USER, pass: env.SMTP_PASSWORD } }
-        : {}),
-});
-
-function from() {
-    if (!env.SMTP_USER || !env.SMTP_PASSWORD || !env.SMTP_FROM) {
-        throw new Error("SMTP_USER, SMTP_PASSWORD, and SMTP_FROM must be configured to send mail.");
-    }
-    return env.SMTP_FROM;
-}
+import { sendEmail } from "../../config/email.js";
 
 function escapeHtml(value: string) {
     return value.replace(/[&<>"']/g, (character) => {
@@ -33,8 +17,7 @@ function escapeHtml(value: string) {
 export async function sendPasswordResetEmail(email: string, name: string, token: string) {
     const url = `${env.FRONTEND_URL.replace(/\/$/, "")}/reset-password#${encodeURIComponent(token)}`;
     const safeName = escapeHtml(name);
-    await transporter.sendMail({
-        from: from(),
+    await sendEmail({
         to: email,
         subject: "Reset your SriPAA Growth System password",
         text: `Hello ${name},\n\nUse this link to choose a new password: ${url}\n\nThis link expires in 30 minutes and can only be used once. If you did not request it, you can ignore this email.`,
@@ -49,8 +32,7 @@ export async function sendManagementNotification(
     details: string[],
 ) {
     const htmlDetails = details.map((line) => `<li>${escapeHtml(line)}</li>`).join("");
-    await transporter.sendMail({
-        from: from(),
+    await sendEmail({
         to: recipient,
         subject,
         text: `${heading}\n\n${details.join("\n")}\n\nAutomated SriPAA Growth System notification.`,

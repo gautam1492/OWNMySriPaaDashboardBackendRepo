@@ -14,7 +14,7 @@ Backend REST API for the SriPAA clinic operations and finance system. It serves 
 
 ## Tech stack
 
-Node.js, TypeScript, Express 5, Prisma 6, MySQL, Zod, JWT, bcryptjs, Nodemailer, Pino, ESLint, Prettier, and Vitest.
+Node.js, TypeScript, Express 5, Prisma 6, MySQL, Zod, JWT, bcryptjs, Brevo transactional email API, Pino, ESLint, Prettier, and Vitest.
 
 ## Requirements
 
@@ -40,20 +40,21 @@ The API defaults to port `5000`; health endpoints are `/health` and `/health/rea
 
 Copy `.env.example` to `.env`. Keep credentials in deployment secrets and never commit a real `.env` file.
 
-| Variable                                                                           | Purpose                                                                                                     |
-| ---------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `NODE_ENV`                                                                         | `development`, `test`, or `production`.                                                                     |
-| `PORT`                                                                             | HTTP listener port.                                                                                         |
-| `DATABASE_URL`                                                                     | Prisma MySQL connection string.                                                                             |
-| `JWT_ACCESS_SECRET`                                                                | Random signing secret of at least 32 characters.                                                            |
-| `JWT_ACCESS_EXPIRES_IN`, `JWT_REFRESH_EXPIRES_IN`                                  | Access and refresh lifetimes.                                                                               |
-| `CORS_ORIGIN`                                                                      | Comma-separated exact frontend origins; no wildcard with credentialed requests.                             |
-| `FRONTEND_URL`                                                                     | Canonical frontend URL used in secure account links.                                                        |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | Outbound mail transport and sender.                                                                         |
-| `DAILY_DATA_REMINDER_TIME`, `BUSINESS_TIMEZONE`                                    | Schedule and timezone for missing daily-entry reminders.                                                    |
-| `COOKIE_SECURE`, `COOKIE_SAME_SITE`                                                | Browser cookie policy. Production requires Secure; separate-site deployments use `SameSite=None` and HTTPS. |
-| `LOG_LEVEL`                                                                        | Pino log threshold. Sensitive request data and raw exception messages are excluded from application logs.   |
-| `SEED_*_PASSWORD`                                                                  | Development-only seed account passwords, at least 12 characters.                                            |
+| Variable                                          | Purpose                                                                                                          |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `NODE_ENV`                                        | `development`, `test`, or `production`.                                                                          |
+| `PORT`                                            | HTTP listener port.                                                                                              |
+| `DATABASE_URL`                                    | Prisma MySQL connection string.                                                                                  |
+| `JWT_ACCESS_SECRET`                               | Random signing secret of at least 32 characters.                                                                 |
+| `JWT_ACCESS_EXPIRES_IN`, `JWT_REFRESH_EXPIRES_IN` | Access and refresh lifetimes.                                                                                    |
+| `CORS_ORIGIN`                                     | Comma-separated exact frontend origins; no wildcard with credentialed requests.                                  |
+| `FRONTEND_URL`                                    | Canonical frontend URL used in secure account links.                                                             |
+| `BREVO_API_KEY`                                   | Secret API key used by the backend to send transactional email through Brevo. Required in production.            |
+| `BREVO_SENDER_EMAIL`, `BREVO_SENDER_NAME`         | Verified Brevo sender identity. Sender email is required in production; name defaults to `SriPAA Growth System`. |
+| `DAILY_DATA_REMINDER_TIME`, `BUSINESS_TIMEZONE`   | Schedule and timezone for missing daily-entry reminders.                                                         |
+| `COOKIE_SECURE`, `COOKIE_SAME_SITE`               | Browser cookie policy. Production requires Secure; separate-site deployments use `SameSite=None` and HTTPS.      |
+| `LOG_LEVEL`                                       | Pino log threshold. Sensitive request data and raw exception messages are excluded from application logs.        |
+| `SEED_*_PASSWORD`                                 | Development-only seed account passwords, at least 12 characters.                                                 |
 
 ## Scripts
 
@@ -89,7 +90,7 @@ scripts/              maintenance and operational scripts
 
 1. Provision MySQL and configure `DATABASE_URL` as a secret.
 2. Configure `NODE_ENV=production`, a strong random `JWT_ACCESS_SECRET`, HTTPS `FRONTEND_URL`, and exact frontend origins in `CORS_ORIGIN`.
-3. Configure SMTP credentials as secrets. For a separate frontend/API site, use `COOKIE_SECURE=true`, `COOKIE_SAME_SITE=none`, and HTTPS on both sites.
+3. Configure `BREVO_API_KEY` as a deployment secret and set `BREVO_SENDER_EMAIL` to a sender address verified in Brevo. For a separate frontend/API site, use `COOKIE_SECURE=true`, `COOKIE_SAME_SITE=none`, and HTTPS on both sites.
 4. Build the API with `npm ci`, `npm run db:generate`, and `npm run build`.
 5. Run `npm run db:deploy` as a release step, then start with `npm start`. Do not run seed commands against production.
 6. Configure the frontend's `VITE_API_BASE_URL` to the deployed HTTPS API base, including `/api/v1`. The frontend calls this URL directly; no Vite development proxy is involved.

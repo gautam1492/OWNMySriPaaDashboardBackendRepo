@@ -9,6 +9,7 @@ import { ApiError } from "../../utils/ApiError.js";
 import { hashToken } from "../auth/auth.service.js";
 import { writeAudit } from "../audit/audit.service.js";
 import { safeErrorMetadata } from "../../utils/safeError.js";
+import { EmailDeliveryError } from "../../config/email.js";
 import { sendInvitationExpiredNotice, sendUserInvitation } from "./invitation-email.service.js";
 import type {
     AcceptInvitationInput,
@@ -31,27 +32,17 @@ type InvitationWithRelations = Prisma.UserInvitationGetPayload<{
 }>;
 
 function safeEmailFailureReason(error: unknown) {
-    const mailError = error as {
-        code?: unknown;
-        responseCode?: unknown;
-        message?: unknown;
-    };
-    const code = typeof mailError?.code === "string" ? mailError.code : "";
-    const responseCode = Number(mailError?.responseCode) || undefined;
-    const message = typeof mailError?.message === "string" ? mailError.message : "";
-    if (message.includes("SMTP_USER, SMTP_PASSWORD, and SMTP_FROM")) {
-        return "Mail sender settings are incomplete. Configure SMTP_USER, SMTP_PASSWORD, and SMTP_FROM.";
+    if (error instanceof EmailDeliveryError) {
+        if (error.category === "configuration") return error.message;
+        if (error.statusCode === 401 || error.statusCode === 403) {
+            return "Brevo rejected the API credentials or sender authorization. Check the Brevo API key and verified sender.";
+        }
+        if (error.statusCode === 400) {
+            return "Brevo rejected the email details. Check the recipient and verified sender configuration.";
+        }
+        return error.message;
     }
-    if (code === "EAUTH" || responseCode === 535) {
-        return "Gmail rejected SMTP authentication. Check the Gmail app password and SMTP_USER.";
-    }
-    if (code === "EENVELOPE" || (responseCode && responseCode >= 500)) {
-        return "Gmail rejected the message recipient or sender. Check the recipient address and SMTP_FROM.";
-    }
-    if (["ETIMEDOUT", "ECONNECTION", "ESOCKET", "ECONNREFUSED"].includes(code)) {
-        return "The server could not connect to Gmail SMTP. Check outbound network access and SMTP settings.";
-    }
-    return `Invitation email delivery failed${code ? ` (${code})` : ""}${responseCode ? `, SMTP ${responseCode}` : ""}. Check the backend mail log.`;
+    return "Invitation email delivery failed. Check the backend mail configuration and logs.";
 }
 
 function invitationDto(invitation: InvitationWithRelations) {
@@ -115,7 +106,7 @@ async function deliverInvitation(invitationId: string, token: string) {
     if (!invitation) return false;
     try {
         const messageId = await sendUserInvitation(invitationEmailDetails(invitation, token));
-        logger.info({ invitationId, messageId }, "Invitation email accepted by SMTP server");
+        logger.info({ invitationId, messageId }, "Invitation email accepted by Brevo");
     } catch (error) {
         const failureReason = safeEmailFailureReason(error);
         logger.error({ invitationId, failureReason }, "Invitation email delivery failed");
@@ -138,7 +129,7 @@ async function deliverInvitation(invitationId: string, token: string) {
             data: { lastSentAt: new Date(), lastEmailError: null },
         });
     } catch (error) {
-        // SMTP accepted the message; do not report delivery failure just because
+        // Brevo accepted the message; do not report delivery failure just because
         // recording the sent timestamp failed afterward.
         logger.error(
             { ...safeErrorMetadata(error), invitationId },

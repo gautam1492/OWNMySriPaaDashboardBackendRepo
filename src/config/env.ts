@@ -12,15 +12,9 @@ const envSchema = z
         JWT_REFRESH_EXPIRES_IN: z.string().default("7d"),
         CORS_ORIGIN: z.string().default("http://localhost:5173"),
         FRONTEND_URL: z.string().url().default("http://localhost:5173"),
-        SMTP_HOST: z.string().default("smtp.gmail.com"),
-        SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(465),
-        SMTP_SECURE: z
-            .enum(["true", "false"])
-            .default("true")
-            .transform((value) => value === "true"),
-        SMTP_USER: z.string().optional(),
-        SMTP_PASSWORD: z.string().optional(),
-        SMTP_FROM: z.string().optional(),
+        BREVO_API_KEY: z.string().optional(),
+        BREVO_SENDER_EMAIL: z.string().email().optional(),
+        BREVO_SENDER_NAME: z.string().min(1).default("SriPAA Growth System"),
         DAILY_DATA_REMINDER_TIME: z
             .string()
             .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
@@ -33,6 +27,22 @@ const envSchema = z
             .default("info"),
     })
     .superRefine((values, context) => {
+        if (values.NODE_ENV === "production") {
+            if (!values.BREVO_API_KEY) {
+                context.addIssue({
+                    code: "custom",
+                    path: ["BREVO_API_KEY"],
+                    message: "BREVO_API_KEY is required in production.",
+                });
+            }
+            if (!values.BREVO_SENDER_EMAIL) {
+                context.addIssue({
+                    code: "custom",
+                    path: ["BREVO_SENDER_EMAIL"],
+                    message: "BREVO_SENDER_EMAIL is required in production.",
+                });
+            }
+        }
         const cookieSameSite =
             values.COOKIE_SAME_SITE ?? (values.NODE_ENV === "production" ? "none" : "lax");
         if (

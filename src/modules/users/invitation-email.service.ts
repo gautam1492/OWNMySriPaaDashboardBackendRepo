@@ -1,14 +1,5 @@
-import nodemailer from "nodemailer";
 import { env } from "../../config/env.js";
-
-const transporter = nodemailer.createTransport({
-    host: env.SMTP_HOST,
-    port: env.SMTP_PORT,
-    secure: env.SMTP_SECURE,
-    ...(env.SMTP_USER && env.SMTP_PASSWORD
-        ? { auth: { user: env.SMTP_USER, pass: env.SMTP_PASSWORD } }
-        : {}),
-});
+import { sendEmail } from "../../config/email.js";
 
 export type InvitationEmailDetails = {
     invitedName: string;
@@ -52,13 +43,6 @@ function branchList(branchNames: string[]) {
         : "All clinic branches (cross-branch access)";
 }
 
-function from() {
-    if (!env.SMTP_USER || !env.SMTP_PASSWORD || !env.SMTP_FROM) {
-        throw new Error("SMTP_USER, SMTP_PASSWORD, and SMTP_FROM must be configured to send mail.");
-    }
-    return env.SMTP_FROM;
-}
-
 export async function sendUserInvitation(details: InvitationEmailDetails) {
     if (!details.token) throw new Error("Invitation token is required.");
     const url = `${env.FRONTEND_URL.replace(/\/$/, "")}/accept-invitation/${encodeURIComponent(details.token)}`;
@@ -66,8 +50,7 @@ export async function sendUserInvitation(details: InvitationEmailDetails) {
     const role = escapeHtml(details.roleName.replaceAll("_", " "));
     const inviter = escapeHtml(details.inviterName);
     const expiry = formatExpiry(details.expiresAt);
-    const result = await transporter.sendMail({
-        from: from(),
+    const messageId = await sendEmail({
         to: details.email,
         subject: `Invitation to SriPAA Growth System`,
         text: `Hello ${details.invitedName},\n\n${details.inviterName} invited you to SriPAA Growth System as ${details.roleName.replaceAll("_", " ")}.\nAssigned branches: ${details.branchNames.join(", ") || "All clinic branches (cross-branch access)"}.\n\nAccept your invitation: ${url}\n\nThis link expires on ${expiry}.`,
@@ -76,7 +59,7 @@ export async function sendUserInvitation(details: InvitationEmailDetails) {
             `<h1 style="font-size:22px;margin:0 0 12px">You have been invited</h1><p>Hello ${name},</p><p><strong>${inviter}</strong> invited you to join the SriPAA Growth System.</p><div style="padding:16px;background:#f8faf7;border-radius:12px;margin:20px 0"><p style="margin:0 0 8px"><strong>Role:</strong> ${role}</p><p style="margin:0"><strong>Assigned branches:</strong></p>${branchList(details.branchNames)}</div><p>Accept by <strong>${expiry}</strong>.</p><p style="margin:24px 0"><a href="${url}" style="display:inline-block;background:#577635;color:#fff;text-decoration:none;padding:12px 20px;border-radius:9px;font-weight:bold">Accept invitation</a></p><p style="font-size:12px;color:#718071">If the button does not work, open this link:<br><a href="${url}">${url}</a></p>`,
         ),
     });
-    return result.messageId;
+    return messageId;
 }
 
 export async function sendInvitationExpiredNotice(
@@ -88,8 +71,7 @@ export async function sendInvitationExpiredNotice(
     const branches = details.branchNames.map(escapeHtml).join(", ") || "All clinic branches";
     const inviterName = escapeHtml(details.inviterName);
     const invitationPage = `${env.FRONTEND_URL.replace(/\/$/, "")}/admin/users?view=invitations`;
-    await transporter.sendMail({
-        from: from(),
+    await sendEmail({
         to: details.inviterEmail,
         subject: `SriPAA invitation expired for ${details.invitedName}`,
         text: `The invitation for ${details.invitedName} (${details.email}) expired. Role: ${details.roleName.replaceAll("_", " ")}. Branches: ${branches}. You can send a fresh invitation from ${invitationPage}`,
