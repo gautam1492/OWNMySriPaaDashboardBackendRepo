@@ -205,10 +205,8 @@ export const ROLE_DEFAULT_PERMISSIONS: Readonly<Record<string, readonly Permissi
         PERMISSIONS.WORKSPACE_READ,
         // Branches: read-only
         PERMISSIONS.BRANCHES_READ,
-        // Read revenue records; medicine/OTC sales also allow create and update.
+        // Read-only access to medicine/OTC sales.
         PERMISSIONS.SALES_READ,
-        PERMISSIONS.SALES_CREATE,
-        PERMISSIONS.SALES_UPDATE,
         PERMISSIONS.SERVICE_SALES_READ,
         PERMISSIONS.COURSES_READ,
         PERMISSIONS.CARDS_READ,

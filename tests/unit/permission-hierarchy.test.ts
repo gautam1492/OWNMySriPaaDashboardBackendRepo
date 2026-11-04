@@ -79,29 +79,22 @@ describe("permission constants", () => {
         ]);
     });
 
-    it("gives ACCOUNTS_FINANCE read access to revenue and financial modules without delete access", () => {
+    it("gives ACCOUNTS_FINANCE read-only medicine/OTC sales and writable branch expenses", () => {
         const financePermissions = ROLE_DEFAULT_PERMISSIONS.ACCOUNTS_FINANCE!;
-        const readModules = [
+        const expectedDefaults = [
+            PERMISSIONS.WORKSPACE_READ,
             PERMISSIONS.BRANCHES_READ,
             PERMISSIONS.SALES_READ,
             PERMISSIONS.SERVICE_SALES_READ,
             PERMISSIONS.COURSES_READ,
             PERMISSIONS.CARDS_READ,
-            PERMISSIONS.CORE_INVESTMENTS_READ,
-            PERMISSIONS.MEDICINE_PURCHASES_READ,
-            PERMISSIONS.MARKETING_EXPENSES_READ,
-            PERMISSIONS.CSR_FUNDS_READ,
-            PERMISSIONS.LOANS_READ,
-            PERMISSIONS.LOAN_REPAYMENTS_READ,
-            PERMISSIONS.ADVANCE_TAXES_READ,
-            PERMISSIONS.OTHER_EXPENSES_READ,
-            PERMISSIONS.DIRECTOR_SALARIES_READ,
-            PERMISSIONS.MISCELLANEOUS_EXPENSES_READ,
             PERMISSIONS.BRANCH_EXPENSES_READ,
+            PERMISSIONS.BRANCH_EXPENSES_CREATE,
+            PERMISSIONS.BRANCH_EXPENSES_UPDATE,
         ];
-        expect([...financePermissions].sort()).toEqual(
-            [...readModules, PERMISSIONS.SALES_CREATE, PERMISSIONS.SALES_UPDATE].sort(),
-        );
+        expect([...financePermissions].sort()).toEqual([...expectedDefaults].sort());
+        expect(financePermissions).not.toContain(PERMISSIONS.SALES_CREATE);
+        expect(financePermissions).not.toContain(PERMISSIONS.SALES_UPDATE);
         expect(financePermissions).not.toContain(PERMISSIONS.VISITS_READ);
         expect(financePermissions).not.toContain(PERMISSIONS.FEEDBACK_READ);
         expect(financePermissions).not.toContain(PERMISSIONS.DIRECTORS_READ);
