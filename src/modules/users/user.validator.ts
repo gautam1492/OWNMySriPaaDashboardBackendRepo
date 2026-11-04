@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { listQuerySchema } from "../../utils/pagination.js";
+import { mobileNumberSchema } from "../../utils/mobile-number.js";
 
 const id = z.string().min(1);
 
@@ -11,7 +12,7 @@ export const userCreateSchema = z.object({
     password: z.string().min(8).max(128),
     roleId: id,
     branchIds: z.array(id).max(50).optional(),
-    mobileNumber: z.string().max(30).optional().nullable(),
+    mobileNumber: mobileNumberSchema,
 });
 
 export const userPatchSchema = userCreateSchema

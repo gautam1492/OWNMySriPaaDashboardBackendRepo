@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { listQuerySchema } from "../../utils/pagination.js";
+import { mobileNumberSchema } from "../../utils/mobile-number.js";
 
 const id = z.string().min(1);
 
@@ -17,7 +18,7 @@ export const createInvitationSchema = z.object({
 export const acceptInvitationSchema = z.object({
     name: z.string().trim().min(2).max(160),
     password: z.string().min(8).max(128),
-    mobileNumber: z.string().trim().max(30).optional().nullable(),
+    mobileNumber: mobileNumberSchema,
 });
 
 export type CreateInvitationInput = z.infer<typeof createInvitationSchema>;

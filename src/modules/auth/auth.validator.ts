@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { mobileNumberSchema } from "../../utils/mobile-number.js";
 
 export const loginSchema = z.object({
     email: z.string().email().max(255),
@@ -28,7 +29,7 @@ export const resetPasswordSchema = z
 export const profilePatchSchema = z
     .object({
         name: z.string().trim().min(2).max(160).optional(),
-        mobileNumber: z.string().trim().max(30).nullable().optional(),
+        mobileNumber: mobileNumberSchema,
     })
     .refine((value) => value.name !== undefined || value.mobileNumber !== undefined, {
         message: "Provide a name or mobile number to update.",
