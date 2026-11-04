@@ -44,6 +44,7 @@ Copy `.env.example` to `.env`. Keep credentials in deployment secrets and never 
 | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `NODE_ENV`                                        | `development`, `test`, or `production`.                                                                          |
 | `PORT`                                            | HTTP listener port.                                                                                              |
+| `TRUST_PROXY_HOPS`                                | Trusted reverse-proxy hop count for client IP and rate limits; defaults to `0` locally and `1` in production. Set it to match the hosting proxy topology. |
 | `DATABASE_URL`                                    | Prisma MySQL connection string.                                                                                  |
 | `JWT_ACCESS_SECRET`                               | Random signing secret of at least 32 characters.                                                                 |
 | `JWT_ACCESS_EXPIRES_IN`, `JWT_REFRESH_EXPIRES_IN` | Access and refresh lifetimes.                                                                                    |
@@ -90,6 +91,7 @@ scripts/              maintenance and operational scripts
 
 1. Provision MySQL and configure `DATABASE_URL` as a secret.
 2. Configure `NODE_ENV=production`, a strong random `JWT_ACCESS_SECRET`, HTTPS `FRONTEND_URL`, and exact frontend origins in `CORS_ORIGIN`.
+   The API trusts one proxy hop by default in production (Render). Set `TRUST_PROXY_HOPS` explicitly if your host uses a different proxy chain; avoid trusting all proxies.
 3. Configure `BREVO_API_KEY` as a deployment secret and set `BREVO_SENDER_EMAIL` to a sender address verified in Brevo. For a separate frontend/API site, use `COOKIE_SECURE=true`, `COOKIE_SAME_SITE=none`, and HTTPS on both sites.
 4. Build the API with `npm ci`, `npm run db:generate`, and `npm run build`.
 5. Run `npm run db:deploy` as a release step, then start with `npm start`. Do not run seed commands against production.

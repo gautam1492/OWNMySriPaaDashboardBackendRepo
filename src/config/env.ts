@@ -6,6 +6,7 @@ const envSchema = z
     .object({
         NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
         PORT: z.coerce.number().int().min(1).max(65535).default(5000),
+        TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(10).optional(),
         DATABASE_URL: z.string().min(1),
         JWT_ACCESS_SECRET: z.string().min(32),
         JWT_ACCESS_EXPIRES_IN: z.string().default("15m"),
@@ -110,6 +111,10 @@ const envSchema = z
     })
     .transform((values) => ({
         ...values,
+        // Render places one load balancer in front of the app. Keep local
+        // development unproxied, while allowing other deployments to override.
+        TRUST_PROXY_HOPS:
+            values.TRUST_PROXY_HOPS ?? (values.NODE_ENV === "production" ? 1 : 0),
         COOKIE_SECURE: resolveCookieSecure(values.NODE_ENV, values.COOKIE_SECURE),
         COOKIE_SAME_SITE:
             values.COOKIE_SAME_SITE ?? (values.NODE_ENV === "production" ? "none" : "lax"),

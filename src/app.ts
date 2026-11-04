@@ -5,7 +5,7 @@ import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import { pinoHttp } from "pino-http";
-import { corsOrigins } from "./config/env.js";
+import { corsOrigins, env } from "./config/env.js";
 import { logger } from "./config/logger.js";
 import { pingDatabase } from "./config/database.js";
 import { HTTP_STATUS } from "./constants/httpStatus.js";
@@ -19,6 +19,9 @@ import { safeErrorMetadata } from "./utils/safeError.js";
 
 export const app = express();
 
+// Trust only the configured number of proxy hops so req.ip (and rate limits)
+// use the client address supplied by the hosting proxy.
+app.set("trust proxy", env.TRUST_PROXY_HOPS);
 app.disable("x-powered-by");
 app.use(helmet());
 app.use(cors({ origin: corsOrigins, credentials: true }));
