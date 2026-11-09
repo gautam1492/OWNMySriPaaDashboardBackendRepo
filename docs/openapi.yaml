@@ -173,7 +173,7 @@ paths:
         post:
             tags: [Auth]
             summary: Rotate refresh token (cookie-only, no body)
-            description: Reads the sripaa_refresh_token HttpOnly cookie, rotates it (one-time-use), and re-issues both cookies. Reusing a revoked token revokes every session for that user.
+            description: Reads the sripaa_refresh_token HttpOnly cookie, rotates it (one-time-use), and re-issues both cookies. Each refresh token is linked to one device session; reuse revokes only that session.
             responses:
                 "200":
                     description: Cookies rotated; body contains the user only (no tokens)
@@ -212,6 +212,105 @@ paths:
                         application/json:
                             schema: { $ref: "#/components/schemas/SuccessAuthUser" }
                 "401": { $ref: "#/components/responses/Unauthorized" }
+    /auth/sessions:
+        get:
+            tags: [Auth]
+            summary: List active device sessions
+            security: [{ cookieAuth: [] }]
+            responses:
+                "200":
+                    description: Active sessions belonging to the authenticated user
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    success: { type: boolean }
+                                    message: { type: string }
+                                    data:
+                                        type: array
+                                        items:
+                                            type: object
+                                            required: [id, createdAt, lastActiveAt, expiresAt, isCurrent]
+                                            properties:
+                                                id: { type: string }
+                                                userAgent: { type: string, nullable: true }
+                                                ipAddress: { type: string, nullable: true }
+                                                createdAt: { type: string, format: date-time }
+                                                lastActiveAt: { type: string, format: date-time }
+                                                expiresAt: { type: string, format: date-time }
+                                                isCurrent: { type: boolean }
+                "401": { $ref: "#/components/responses/Unauthorized" }
+    /auth/sessions/revoke-others:
+        post:
+            tags: [Auth]
+            summary: Sign out other devices
+            security: [{ cookieAuth: [] }]
+            responses:
+                "200":
+                    description: All sessions except the current one were revoked
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    success: { type: boolean }
+                                    message: { type: string }
+                                    data:
+                                        type: object
+                                        properties:
+                                            revokedCount: { type: integer }
+                "401": { $ref: "#/components/responses/Unauthorized" }
+    /auth/sessions/revoke-all:
+        post:
+            tags: [Auth]
+            summary: Sign out all devices
+            security: [{ cookieAuth: [] }]
+            responses:
+                "200":
+                    description: All sessions revoked and both current cookies cleared
+                    headers:
+                        Set-Cookie:
+                            description: sripaa_access_token and sripaa_refresh_token cleared.
+                            schema: { type: string }
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    success: { type: boolean }
+                                    message: { type: string }
+                                    data:
+                                        type: object
+                                        properties:
+                                            revokedCount: { type: integer }
+                "401": { $ref: "#/components/responses/Unauthorized" }
+    /auth/sessions/{sessionId}:
+        delete:
+            tags: [Auth]
+            summary: Sign out one device
+            security: [{ cookieAuth: [] }]
+            parameters:
+                - in: path
+                  name: sessionId
+                  required: true
+                  schema: { type: string, minLength: 1 }
+            responses:
+                "200":
+                    description: The matching session belonging to the authenticated user was revoked
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    success: { type: boolean }
+                                    message: { type: string }
+                                    data:
+                                        type: object
+                                        properties:
+                                            revokedCount: { type: integer }
+                "401": { $ref: "#/components/responses/Unauthorized" }
+                "404": { $ref: "#/components/responses/NotFound" }
     /auth/change-password:
         post:
             tags: [Auth]

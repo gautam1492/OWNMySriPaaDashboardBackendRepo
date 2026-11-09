@@ -13,7 +13,7 @@ const { cookies, authService } = vi.hoisted(() => ({
         changePassword: vi.fn(),
         accessTokenMaxAgeMs: vi.fn(() => 900_000),
         refreshTokenMaxAgeMs: vi.fn(() => 604_800_000),
-        decodeUserIdAllowingExpiry: vi.fn(() => "user-1"),
+        decodeSessionIdentityAllowingExpiry: vi.fn(() => ({ userId: "user-1", sessionId: "session-1" })),
     },
 }));
 
@@ -57,7 +57,7 @@ describe("auth controller cookies", () => {
         vi.clearAllMocks();
         authService.accessTokenMaxAgeMs.mockReturnValue(900_000);
         authService.refreshTokenMaxAgeMs.mockReturnValue(604_800_000);
-        authService.decodeUserIdAllowingExpiry.mockReturnValue("user-1");
+        authService.decodeSessionIdentityAllowingExpiry.mockReturnValue({ userId: "user-1", sessionId: "session-1" });
     });
 
     it("login sets both auth cookies and never returns tokens in the body", async () => {
@@ -66,6 +66,7 @@ describe("auth controller cookies", () => {
             accessToken: "access",
             accessTokenExpiresAt: "2026-09-24T12:00:00.000Z",
             refreshToken: "refresh",
+            refreshTokenExpiresAt: "2099-01-01T00:00:00.000Z",
             user: { id: "user-1" },
         });
         const res = makeRes();
@@ -103,6 +104,7 @@ describe("auth controller cookies", () => {
             accessToken: "access-2",
             accessTokenExpiresAt: "2026-09-24T12:15:00.000Z",
             refreshToken: "refresh-2",
+            refreshTokenExpiresAt: "2099-01-01T00:00:00.000Z",
             user: { id: "user-1" },
         });
         const res = makeRes();
@@ -124,7 +126,10 @@ describe("auth controller cookies", () => {
         const res = makeRes();
         await logout({ cookies: { sripaa_refresh_token: "refresh-1" } } as never, asRes(res));
 
-        expect(authService.logout).toHaveBeenCalledWith("refresh-1", {}, "user-1");
+        expect(authService.logout).toHaveBeenCalledWith("refresh-1", {}, {
+            userId: "user-1",
+            sessionId: "session-1",
+        });
         expect(cookies.cleared.map((c) => c.name).sort()).toEqual([
             "sripaa_access_token",
             "sripaa_refresh_token",

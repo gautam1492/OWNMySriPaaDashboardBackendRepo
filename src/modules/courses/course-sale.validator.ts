@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { dateString } from "../../utils/dates.js";
+import { dateString, nonFutureDateString } from "../../utils/dates.js";
 import { listQuerySchema } from "../../utils/pagination.js";
 
 const id = z.string().min(1);
@@ -14,7 +14,7 @@ export const courseSaleListQuery = listQuerySchema.extend({
 export const courseSaleSchema = z.object({
     courseId: id,
     courseDoctorId: id,
-    purchaseDate: dateString,
+    purchaseDate: nonFutureDateString,
     numberOfCourses: z.coerce.number().int().min(1),
     pricePerCourse: z.coerce.number().min(0).max(999999999.99),
     discount: z.coerce.number().min(0).max(999999999.99).optional().default(0),

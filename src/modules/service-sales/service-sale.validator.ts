@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { dateString } from "../../utils/dates.js";
+import { nonFutureDateString } from "../../utils/dates.js";
 import { listQuerySchema } from "../../utils/pagination.js";
 
 const id = z.string().min(1);
@@ -9,7 +9,7 @@ export const serviceSaleListQuery = listQuerySchema
     .extend({ serviceType: z.enum(["CONSULTATION", "THERAPY", "OTHER"]).optional() });
 
 export const serviceSaleSchema = z.object({
-    date: dateString,
+    date: nonFutureDateString,
     branchId: id,
     serviceType: z.enum(["CONSULTATION", "THERAPY", "OTHER"]),
     serviceId: id,

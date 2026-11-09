@@ -116,27 +116,28 @@ model Branch {
 }
 
 model User {
-  id                     String               @id @default(cuid())
-  name                   String
-  email                  String               @unique
-  passwordHash           String
-  roleId                 String
-  isActive               Boolean              @default(true)
-  isVerified             Boolean              @default(true)
-  lastLoginAt            DateTime?
-  mobileNumber           String?              @db.VarChar(30)
-  role                   Role                 @relation(fields: [roleId], references: [id])
-  branches               UserBranch[]
-  permissions            UserPermission[]
-  refreshTokens          RefreshToken[]
-  auditLogs              AuditLog[]
-  sentInvitations        UserInvitation[]     @relation("InvitationInviter")
-  acceptedInvitations    UserInvitation[]     @relation("InvitationAcceptedUser")
-  passwordResetTokens    PasswordResetToken[]
-  directorSalaryPayments DirectorSalary[]
+  id                          String                      @id @default(cuid())
+  name                        String
+  email                       String                      @unique
+  passwordHash                String
+  roleId                      String
+  isActive                    Boolean                     @default(true)
+  isVerified                  Boolean                     @default(true)
+  lastLoginAt                 DateTime?
+  mobileNumber                String?                     @db.VarChar(30)
+  role                        Role                        @relation(fields: [roleId], references: [id])
+  branches                    UserBranch[]
+  permissions                 UserPermission[]
+  refreshTokens               RefreshToken[]
+  authSessions                AuthSession[]
+  auditLogs                   AuditLog[]
+  sentInvitations             UserInvitation[]            @relation("InvitationInviter")
+  acceptedInvitations         UserInvitation[]            @relation("InvitationAcceptedUser")
+  passwordResetTokens         PasswordResetToken[]
+  directorSalaryPayments      DirectorSalary[]
   dailyDataReminderDeliveries DailyDataReminderDelivery[]
-  createdAt              DateTime             @default(now())
-  updatedAt              DateTime             @updatedAt
+  createdAt                   DateTime                    @default(now())
+  updatedAt                   DateTime                    @updatedAt
 
   @@index([roleId])
   @@index([isActive])
@@ -208,15 +209,15 @@ model UserBranch {
 }
 
 model DailyDataReminderDelivery {
-  id          String   @id @default(cuid())
-  userId      String
-  businessDate String  @db.VarChar(10)
-  claimedAt   DateTime?
-  sentAt      DateTime?
-  attempts    Int      @default(0)
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String    @id @default(cuid())
+  userId       String
+  businessDate String    @db.VarChar(10)
+  claimedAt    DateTime?
+  sentAt       DateTime?
+  attempts     Int       @default(0)
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@unique([userId, businessDate])
   @@index([businessDate, sentAt])
@@ -246,20 +247,39 @@ model UserPermission {
 }
 
 model RefreshToken {
-  id                String    @id @default(cuid())
+  id                String       @id @default(cuid())
   userId            String
-  tokenHash         String    @unique
+  tokenHash         String       @unique
   expiresAt         DateTime
   revokedAt         DateTime?
   replacedByTokenId String?
-  userAgent         String?   @db.VarChar(512)
-  ipAddress         String?   @db.VarChar(64)
-  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt         DateTime  @default(now())
+  userAgent         String?      @db.VarChar(512)
+  ipAddress         String?      @db.VarChar(64)
+  sessionId         String?
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session           AuthSession? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  createdAt         DateTime     @default(now())
 
   @@index([userId])
   @@index([expiresAt])
   @@index([revokedAt])
+  @@index([sessionId])
+}
+
+model AuthSession {
+  id            String         @id @default(cuid())
+  userId        String
+  userAgent     String?        @db.VarChar(512)
+  ipAddress     String?        @db.VarChar(64)
+  expiresAt     DateTime
+  lastActiveAt  DateTime       @default(now())
+  revokedAt     DateTime?
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshTokens RefreshToken[]
+  createdAt     DateTime       @default(now())
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
 }
 
 model Item {

@@ -261,6 +261,17 @@ export async function update(
                 });
             }
         }
+        if (patch.isActive === false) {
+            const now = new Date();
+            await tx.authSession.updateMany({
+                where: { userId: id, revokedAt: null },
+                data: { revokedAt: now },
+            });
+            await tx.refreshToken.updateMany({
+                where: { userId: id, revokedAt: null },
+                data: { revokedAt: now },
+            });
+        }
         return user;
     });
     await writeAudit({
@@ -306,7 +317,21 @@ export async function updateStatus(
 
     if (target.isActive === input.isActive) return withoutPasswordHash(target);
 
-    const updated = await userRepository.update(id, { isActive: input.isActive });
+    const updated = await prisma.$transaction(async (tx) => {
+        const user = await tx.user.update({ where: { id }, data: { isActive: input.isActive }, include: { role: true } });
+        if (!input.isActive) {
+            const now = new Date();
+            await tx.authSession.updateMany({
+                where: { userId: id, revokedAt: null },
+                data: { revokedAt: now },
+            });
+            await tx.refreshToken.updateMany({
+                where: { userId: id, revokedAt: null },
+                data: { revokedAt: now },
+            });
+        }
+        return user;
+    });
     await writeAudit({
         ...auditMeta(actorId, meta),
         action: input.isActive ? "USER_ACTIVATED" : "USER_DEACTIVATED",

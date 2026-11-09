@@ -11,6 +11,8 @@ export type AuthTokens = {
     /** ISO timestamp for when the access cookie expires (safe to expose; helps clients refresh proactively). */
     accessTokenExpiresAt: string;
     refreshToken: string;
+    /** Absolute session expiry; refresh rotations cannot extend this limit. */
+    refreshTokenExpiresAt: string;
     user: AuthUser;
     refreshTokenId: string;
 };

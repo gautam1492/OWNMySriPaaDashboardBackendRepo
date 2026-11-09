@@ -13,7 +13,7 @@ describe("authenticate middleware (cookie-only)", () => {
             permissions: [],
             role: "ADMIN" as const,
         };
-        const token = signAccessToken(user);
+        const token = signAccessToken(user, "test-session-1");
         const req = { cookies: { sripaa_access_token: token } } as never;
         let nextError: unknown;
         authenticate(
@@ -39,7 +39,7 @@ describe("authenticate middleware (cookie-only)", () => {
             branchIds: [],
             permissions: [],
             role: "ADMIN" as const,
-        });
+        }, "test-session-1");
         const req = { cookies: {}, header: () => `Bearer ${token}` } as never;
         let nextError: unknown;
         authenticate(

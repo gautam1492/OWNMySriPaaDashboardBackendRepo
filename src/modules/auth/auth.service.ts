@@ -26,9 +26,10 @@ export function hashToken(token: string) {
     return crypto.createHash("sha256").update(token).digest("hex");
 }
 
-export function signAccessToken(user: AuthUser) {
+export function signAccessToken(user: AuthUser, sessionId: string) {
     return jwt.sign(
         {
+            sid: sessionId,
             name: user.name,
             email: user.email,
             roleId: user.roleId,
@@ -63,20 +64,24 @@ export function refreshTokenMaxAgeMs() {
 export function verifyAccessToken(token: string) {
     return jwt.verify(token, env.JWT_ACCESS_SECRET) as jwt.JwtPayload & {
         sub: string;
+        sid: string;
         role: AuthUser["role"];
         branchIds: string[];
         permissions: string[];
     };
 }
 
-export function decodeUserIdAllowingExpiry(token: string | undefined): string | undefined {
+export function decodeSessionIdentityAllowingExpiry(
+    token: string | undefined,
+): { userId: string; sessionId?: string } | undefined {
     if (!token) return undefined;
     try {
-        return verifyAccessToken(token).sub;
+        const payload = verifyAccessToken(token);
+        return { userId: payload.sub, sessionId: payload.sid };
     } catch (error) {
         if (error instanceof jwt.TokenExpiredError) {
-            const payload = jwt.decode(token) as (jwt.JwtPayload & { sub?: string }) | null;
-            return payload?.sub;
+            const payload = jwt.decode(token) as (jwt.JwtPayload & { sub?: string; sid?: string }) | null;
+            return payload?.sub ? { userId: payload.sub, sessionId: payload.sid } : undefined;
         }
         return undefined;
     }
@@ -138,7 +143,7 @@ export async function login(
         throw new ApiError(HTTP_STATUS.UNAUTHORIZED, MESSAGES.INVALID_CREDENTIALS);
     }
     const rawRefresh = crypto.randomBytes(48).toString("base64url");
-    const token = await authRepository.createRefreshToken({
+    const { session, token } = await authRepository.createSessionWithRefreshToken({
         userId: user.id,
         tokenHash: hashToken(rawRefresh),
         expiresAt: refreshExpiry(),
@@ -155,9 +160,10 @@ export async function login(
         userAgent: meta.userAgent,
     });
     return {
-        accessToken: signAccessToken(authUser),
+        accessToken: signAccessToken(authUser, session.id),
         accessTokenExpiresAt: accessTokenExpiresAt(),
         refreshToken: rawRefresh,
+        refreshTokenExpiresAt: token.expiresAt.toISOString(),
         user: authUser,
         refreshTokenId: token.id,
     };
@@ -208,38 +214,62 @@ export async function refresh(
         throw new ApiError(HTTP_STATUS.UNAUTHORIZED, MESSAGES.REFRESH_TOKEN_REQUIRED);
     }
     const stored = await authRepository.findRefreshTokenByHash(hashToken(rawRefresh));
-    if (!stored || stored.expiresAt < new Date() || !stored.user.isActive) {
+    const now = new Date();
+    if (!stored || stored.expiresAt <= now || !stored.user.isActive || !stored.user.isVerified) {
         throw new ApiError(HTTP_STATUS.UNAUTHORIZED, MESSAGES.INVALID_REFRESH_TOKEN);
     }
     if (stored.revokedAt) {
-        // Refresh-token reuse: revoke the whole family so a stolen token cannot be replayed.
-        await authRepository.revokeUserRefreshTokens(stored.userId);
+        // Reuse revokes only this device's session family, preserving other signed-in devices.
+        if (stored.sessionId) {
+            await authRepository.revokeSession(stored.userId, stored.sessionId, now);
+        }
+        throw new ApiError(HTTP_STATUS.UNAUTHORIZED, MESSAGES.INVALID_REFRESH_TOKEN);
+    }
+    const session = stored.session ??
+        (await authRepository.ensureRefreshSession(stored.id, stored.userId, stored.expiresAt, {
+            ipAddress: meta.ip,
+            userAgent: meta.userAgent,
+        }));
+    if (!session || session.revokedAt || session.expiresAt <= now) {
         throw new ApiError(HTTP_STATUS.UNAUTHORIZED, MESSAGES.INVALID_REFRESH_TOKEN);
     }
     const nextRaw = crypto.randomBytes(48).toString("base64url");
     const next = await authRepository.rotateRefreshToken({
         storedId: stored.id,
         userId: stored.userId,
+        sessionId: session.id,
         tokenHash: hashToken(nextRaw),
-        expiresAt: refreshExpiry(),
+        expiresAt: session.expiresAt,
         ipAddress: meta.ip,
         userAgent: meta.userAgent,
     });
+    if (!next) {
+        throw new ApiError(HTTP_STATUS.UNAUTHORIZED, MESSAGES.INVALID_REFRESH_TOKEN);
+    }
     const user = toAuthUser(stored.user);
     return {
-        accessToken: signAccessToken(user),
+        accessToken: signAccessToken(user, session.id),
         accessTokenExpiresAt: accessTokenExpiresAt(),
         refreshToken: nextRaw,
+        refreshTokenExpiresAt: session.expiresAt.toISOString(),
         user,
         refreshTokenId: next.id,
     };
 }
 
-export async function logout(rawRefresh: string | undefined, meta: RequestMeta, userId?: string) {
+export async function logout(
+    rawRefresh: string | undefined,
+    meta: RequestMeta,
+    identity?: { userId: string; sessionId?: string },
+) {
     if (rawRefresh) {
         const stored = await authRepository.findRefreshTokenByHash(hashToken(rawRefresh));
         if (stored) {
-            await authRepository.revokeRefreshTokenByHash(hashToken(rawRefresh));
+            if (stored.sessionId) {
+                await authRepository.revokeSession(stored.userId, stored.sessionId, new Date());
+            } else {
+                await authRepository.revokeRefreshTokenByHash(hashToken(rawRefresh));
+            }
             await writeAudit({
                 userId: stored.userId,
                 action: "LOGOUT",
@@ -252,9 +282,12 @@ export async function logout(rawRefresh: string | undefined, meta: RequestMeta, 
     }
     // No session to revoke and no identifiable actor: stay silent so the public
     // endpoint cannot be used to spam the audit log.
-    if (!userId) return;
+    if (!identity) return;
+    if (identity.sessionId) {
+        await authRepository.revokeSession(identity.userId, identity.sessionId, new Date());
+    }
     await writeAudit({
-        userId,
+        userId: identity.userId,
         action: "LOGOUT",
         resourceType: "AUTH",
         ipAddress: meta.ip,
@@ -262,18 +295,87 @@ export async function logout(rawRefresh: string | undefined, meta: RequestMeta, 
     });
 }
 
-export async function changePassword(userId: string, currentPassword: string, newPassword: string) {
+export async function changePassword(
+    userId: string,
+    currentSessionId: string,
+    currentPassword: string,
+    newPassword: string,
+) {
     const user = await authRepository.findUserById(userId);
     if (!user || !(await bcrypt.compare(currentPassword, user.passwordHash))) {
         throw new ApiError(HTTP_STATUS.UNAUTHORIZED, MESSAGES.CURRENT_PASSWORD_INCORRECT);
     }
-    await authRepository.changePasswordTransaction(userId, await bcrypt.hash(newPassword, 12));
+    await authRepository.changePasswordTransaction(
+        userId,
+        currentSessionId,
+        await bcrypt.hash(newPassword, 12),
+    );
     await writeAudit({
         userId,
         action: "PASSWORD_CHANGED",
         resourceType: "AUTH",
         resourceId: userId,
     });
+}
+
+export async function listSessions(userId: string, currentSessionId: string) {
+    const now = new Date();
+    const sessions = await authRepository.listActiveSessions(userId, now);
+    return sessions.map((session) => ({
+        ...session,
+        isCurrent: session.id === currentSessionId,
+    }));
+}
+
+export async function revokeOtherSessions(
+    userId: string,
+    currentSessionId: string,
+    meta: RequestMeta,
+) {
+    const count = await authRepository.revokeOtherSessions(userId, currentSessionId, new Date());
+    await writeAudit({
+        userId,
+        action: "AUTH_SESSIONS_REVOKED",
+        resourceType: "AUTH",
+        resourceId: userId,
+        ipAddress: meta.ip,
+        userAgent: meta.userAgent,
+        metadata: { scope: "OTHER_SESSIONS", revokedCount: count },
+    });
+    return { revokedCount: count };
+}
+
+export async function revokeAllSessions(userId: string, meta: RequestMeta) {
+    const count = await authRepository.revokeAllSessions(userId, new Date());
+    await writeAudit({
+        userId,
+        action: "AUTH_SESSIONS_REVOKED",
+        resourceType: "AUTH",
+        resourceId: userId,
+        ipAddress: meta.ip,
+        userAgent: meta.userAgent,
+        metadata: { scope: "ALL_SESSIONS", revokedCount: count },
+    });
+    return { revokedCount: count };
+}
+
+export async function revokeOneSession(
+    userId: string,
+    sessionId: string,
+    meta: RequestMeta,
+) {
+    const count = await authRepository.revokeSession(userId, sessionId, new Date());
+    if (!count) throw new ApiError(HTTP_STATUS.NOT_FOUND, "Active session not found.");
+    await writeAudit({
+        userId,
+        action: "AUTH_SESSIONS_REVOKED",
+        resourceType: "AUTH",
+        resourceId: sessionId,
+        ipAddress: meta.ip,
+        userAgent: meta.userAgent,
+        metadata: { scope: "SINGLE_SESSION" },
+    });
+    return { revokedCount: count };
 }
 
 const PASSWORD_RESET_LIFETIME_MS = 30 * 60 * 1000;
@@ -364,6 +466,10 @@ export async function resetPassword(rawToken: string, password: string) {
         }
         await tx.user.update({ where: { id: user.id }, data: { passwordHash } });
         await tx.refreshToken.updateMany({
+            where: { userId: user.id, revokedAt: null },
+            data: { revokedAt: now },
+        });
+        await tx.authSession.updateMany({
             where: { userId: user.id, revokedAt: null },
             data: { revokedAt: now },
         });

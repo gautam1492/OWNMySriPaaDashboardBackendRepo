@@ -26,6 +26,10 @@ The health endpoints are outside the API prefix and do not require authenticatio
 | POST   | `/auth/refresh`         | Refresh cookie | Rotate the refresh token and issue a new access cookie.                             |
 | POST   | `/auth/logout`          | Public         | Clear cookies and revoke the session, including when the access token has expired.  |
 | GET    | `/auth/me`              | Authenticated  | Return the current user profile and effective permissions.                          |
+| GET    | `/auth/sessions`        | Authenticated  | List the signed-in user's active device sessions.                                   |
+| POST   | `/auth/sessions/revoke-others` | Authenticated | Revoke every active session except the current device.                              |
+| POST   | `/auth/sessions/revoke-all` | Authenticated | Revoke every active session and clear the current device cookies.                   |
+| DELETE | `/auth/sessions/{sessionId}` | Authenticated | Revoke one of the signed-in user's sessions.                                       |
 | GET    | `/auth/profile`         | Authenticated  | Return account details, role, branches, account status, and effective permissions.  |
 | PATCH  | `/auth/profile`         | Authenticated  | Update the current user's name and/or mobile number.                                |
 | POST   | `/auth/change-password` | Authenticated  | Change the current user's password.                                                 |
@@ -34,7 +38,7 @@ The health endpoints are outside the API prefix and do not require authenticatio
 
 `GET /workspace/summary` is available to authenticated roles with `workspace.read`. Branch-scoped roles can pass an optional `branchId`; it must be one of their assignments. Monthly counts are returned only for modules available to that role and are scoped to the selected branch (or assigned branches if no branch is selected). Cross-branch roles receive pending invitation, inactive account, and last-seven-day audit activity counts. It does not return company-level expense counts or dashboard analytics.
 
-Tokens are not returned in response JSON. Refresh tokens are rotated on use. Reuse of a revoked refresh token invalidates its token family.
+Tokens are not returned in response JSON. Each successful login creates an independent server-side device session. Refresh tokens are rotated on use and linked to that session; reuse of a revoked refresh token revokes only that device session. Access requests check that the session remains active, so revocation takes effect on the next API request. Session expiry is absolute and uses `JWT_REFRESH_EXPIRES_IN` from the time of login. Sessions expose browser/device, IP address, sign-in time, last activity, and expiry only to their owner. Password changes, password resets, and account deactivation revoke all sessions.
 
 | Cookie                 | Path           | Flags                                                                   | Default lifetime                |
 | ---------------------- | -------------- | ----------------------------------------------------------------------- | ------------------------------- |

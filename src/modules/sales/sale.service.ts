@@ -29,8 +29,11 @@ async function buildSaleItems(input: SaleInput) {
     if (!input.items?.length) {
         throw new ApiError(HTTP_STATUS.UNPROCESSABLE, MESSAGES.SALE_ENTRY_INVALID);
     }
-    const items = await itemRepository.findActiveByIds(input.items.map((item) => item.itemId));
-    if (items.length !== input.items.length) {
+    // Repeated catalog items are valid on separate receipt lines. Compare the
+    // fetched active items with unique IDs so duplicates do not look missing.
+    const itemIds = [...new Set(input.items.map((item) => item.itemId))];
+    const items = await itemRepository.findActiveByIds(itemIds);
+    if (items.length !== itemIds.length) {
         throw new ApiError(HTTP_STATUS.UNPROCESSABLE, MESSAGES.ITEMS_INACTIVE);
     }
     const expected = expectedItemType(input.entryType);

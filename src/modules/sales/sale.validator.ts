@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { dateString } from "../../utils/dates.js";
+import { nonFutureDateString } from "../../utils/dates.js";
 import { listQuerySchema } from "../../utils/pagination.js";
 
 const id = z.string().min(1);
@@ -13,10 +13,18 @@ const saleItem = z.object({
 export const saleListQuery = listQuerySchema;
 
 export const saleSchema = z.object({
-    date: dateString,
+    date: nonFutureDateString,
     branchId: id,
     entryType: z.enum(["OTC", "DOCTOR_PRESCRIBED_MEDICINE"]),
     items: z.array(saleItem).min(1).max(100),
     gstPercentage: z.coerce.number().min(0).max(100).optional(),
     sgstPercentage: z.coerce.number().min(0).max(100).optional(),
+}).superRefine((values, context) => {
+    if ((values.gstPercentage ?? 0) + (values.sgstPercentage ?? 0) > 100) {
+        context.addIssue({
+            code: "custom",
+            path: ["sgstPercentage"],
+            message: "Combined GST and SGST rates cannot exceed 100%.",
+        });
+    }
 });

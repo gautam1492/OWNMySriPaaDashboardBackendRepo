@@ -11,17 +11,23 @@ import { MESSAGES } from "../../constants/messages.js";
 import { ApiResponse } from "../../utils/ApiResponse.js";
 import { getRequestMeta } from "../../utils/requestMeta.js";
 import * as authService from "./auth.service.js";
+import type { AuthTokens } from "./auth.types.js";
 
-function setAuthCookies(res: Response, accessToken: string, refreshToken: string) {
+function setAuthCookies(res: Response, result: AuthTokens) {
     res.cookie(
         ACCESS_TOKEN_COOKIE,
-        accessToken,
+        result.accessToken,
         accessCookieOptions(authService.accessTokenMaxAgeMs()),
     );
     res.cookie(
         REFRESH_TOKEN_COOKIE,
-        refreshToken,
-        refreshCookieOptions(authService.refreshTokenMaxAgeMs()),
+        result.refreshToken,
+        refreshCookieOptions(
+            Math.min(
+                authService.refreshTokenMaxAgeMs(),
+                Math.max(0, Date.parse(result.refreshTokenExpiresAt) - Date.now()),
+            ),
+        ),
     );
 }
 
@@ -32,7 +38,7 @@ function clearAuthCookies(res: Response) {
 
 export async function login(req: Request, res: Response) {
     const result = await authService.login(req.body.email, req.body.password, getRequestMeta(req));
-    setAuthCookies(res, result.accessToken, result.refreshToken);
+    setAuthCookies(res, result);
     return ApiResponse.success(
         res,
         { user: result.user, accessTokenExpiresAt: result.accessTokenExpiresAt },
@@ -47,7 +53,7 @@ export async function refresh(req: Request, res: Response) {
         req.cookies?.[REFRESH_TOKEN_COOKIE] as string | undefined,
         getRequestMeta(req),
     );
-    setAuthCookies(res, result.accessToken, result.refreshToken);
+    setAuthCookies(res, result);
     return ApiResponse.success(
         res,
         { user: result.user, accessTokenExpiresAt: result.accessTokenExpiresAt },
@@ -60,12 +66,40 @@ export async function logout(req: Request, res: Response) {
     await authService.logout(
         req.cookies?.[REFRESH_TOKEN_COOKIE] as string | undefined,
         getRequestMeta(req),
-        authService.decodeUserIdAllowingExpiry(
+        authService.decodeSessionIdentityAllowingExpiry(
             req.cookies?.[ACCESS_TOKEN_COOKIE] as string | undefined,
-        ) ?? req.user?.id,
+        ) ?? (req.user ? { userId: req.user.id, sessionId: req.authSessionId } : undefined),
     );
     clearAuthCookies(res);
     return ApiResponse.success(res, null, MESSAGES.LOGGED_OUT);
+}
+
+export async function sessions(req: Request, res: Response) {
+    return ApiResponse.success(
+        res,
+        await authService.listSessions(req.user!.id, req.authSessionId!),
+    );
+}
+
+export async function revokeOtherSessions(req: Request, res: Response) {
+    return ApiResponse.success(
+        res,
+        await authService.revokeOtherSessions(req.user!.id, req.authSessionId!, getRequestMeta(req)),
+        "Other sessions signed out.",
+    );
+}
+
+export async function revokeAllSessions(req: Request, res: Response) {
+    const result = await authService.revokeAllSessions(req.user!.id, getRequestMeta(req));
+    clearAuthCookies(res);
+    return ApiResponse.success(res, result, "All sessions signed out.");
+}
+
+export async function revokeSession(req: Request, res: Response) {
+    const sessionId = String(req.params.sessionId);
+    const result = await authService.revokeOneSession(req.user!.id, sessionId, getRequestMeta(req));
+    if (sessionId === req.authSessionId) clearAuthCookies(res);
+    return ApiResponse.success(res, result, "Session signed out.");
 }
 
 export async function me(req: Request, res: Response) {
@@ -85,8 +119,12 @@ export async function updateProfile(req: Request, res: Response) {
 }
 
 export async function changePassword(req: Request, res: Response) {
-    await authService.changePassword(req.user!.id, req.body.currentPassword, req.body.newPassword);
-    clearAuthCookies(res);
+    await authService.changePassword(
+        req.user!.id,
+        req.authSessionId!,
+        req.body.currentPassword,
+        req.body.newPassword,
+    );
     return ApiResponse.success(res, null, MESSAGES.PASSWORD_CHANGED);
 }
 

@@ -40,6 +40,10 @@ router.post("/refresh", asyncHandler(authController.refresh));
 // Logout also works when the access token has expired or is missing.
 router.post("/logout", asyncHandler(authController.logout));
 router.get("/me", authenticate, asyncHandler(authController.me));
+router.get("/sessions", authenticate, asyncHandler(authController.sessions));
+router.post("/sessions/revoke-others", authenticate, asyncHandler(authController.revokeOtherSessions));
+router.post("/sessions/revoke-all", authenticate, asyncHandler(authController.revokeAllSessions));
+router.delete("/sessions/:sessionId", authenticate, asyncHandler(authController.revokeSession));
 router.get("/profile", authenticate, asyncHandler(authController.profile));
 router.patch(
     "/profile",

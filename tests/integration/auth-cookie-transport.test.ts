@@ -18,7 +18,7 @@ const staffUser: AuthUser = {
 const adminUser: AuthUser = { ...staffUser, role: "ADMIN", branchIds: [] };
 
 function accessCookie(user: AuthUser) {
-    return `${ACCESS_TOKEN_COOKIE}=${signAccessToken(user)}`;
+    return `${ACCESS_TOKEN_COOKIE}=${signAccessToken(user, "test-session-1")}`;
 }
 
 describe("auth cookie transport (HTTP level)", () => {
@@ -31,7 +31,7 @@ describe("auth cookie transport (HTTP level)", () => {
     it("ignores Authorization: Bearer headers (cookie-only auth)", async () => {
         const response = await request(app)
             .get("/api/v1/auth/me")
-            .set("Authorization", `Bearer ${signAccessToken(adminUser)}`);
+            .set("Authorization", `Bearer ${signAccessToken(adminUser, "test-session-1")}`);
         expect(response.status).toBe(401);
     });
 

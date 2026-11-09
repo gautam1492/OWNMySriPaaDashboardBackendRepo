@@ -1,6 +1,26 @@
 import { z } from "zod";
+import { env } from "../config/env.js";
 
 export const dateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD");
+
+function businessToday(): string {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: env.BUSINESS_TIMEZONE,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+    }).formatToParts(new Date());
+    const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+    return `${values.year}-${values.month}-${values.day}`;
+}
+
+/** Date schema for records entered by users; date-range query filters should keep using dateString. */
+export const nonFutureDateString = dateString
+    .refine((value) => {
+        const parsed = new Date(`${value}T00:00:00.000Z`);
+        return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+    }, "Enter a valid calendar date.")
+    .refine((value) => value <= businessToday(), "Date cannot be in the future.");
 
 export function asDate(value: string): Date {
     return new Date(`${value}T00:00:00.000Z`);

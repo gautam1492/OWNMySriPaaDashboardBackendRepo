@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { dateString } from "../../utils/dates.js";
+import { nonFutureDateString } from "../../utils/dates.js";
 import { listQuerySchema } from "../../utils/pagination.js";
 
 const id = z.string().min(1);
@@ -7,7 +7,7 @@ const id = z.string().min(1);
 export const feedbackListQuery = listQuerySchema;
 
 export const feedbackSchema = z.object({
-    date: dateString,
+    date: nonFutureDateString,
     branchId: id,
     doctor: z.string().trim().min(1).max(160),
     service: z.string().trim().min(1).max(160),

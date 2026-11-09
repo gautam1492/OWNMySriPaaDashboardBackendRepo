@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { dateString } from "../../utils/dates.js";
+import { dateString, nonFutureDateString } from "../../utils/dates.js";
 import { listQuerySchema } from "../../utils/pagination.js";
 
 const id = z.string().min(1);
@@ -39,7 +39,7 @@ export const branchExpenseSchemas = {
         month,
         year: z.coerce.number().int().min(2023).max(2100),
         salary: money,
-        dateCredited: dateString,
+        dateCredited: nonFutureDateString,
         totalAmount: money,
     }),
     rent: z.object({
@@ -54,8 +54,8 @@ export const branchExpenseSchemas = {
         branchId: id,
         amount: money,
         billId: z.string().trim().min(1).max(80),
-        paidDate: dateString,
-        assignedDate: dateString,
+        paidDate: nonFutureDateString,
+        assignedDate: nonFutureDateString,
         month,
         year: z.coerce.number().int().min(2023).max(2100),
     }),
@@ -63,8 +63,8 @@ export const branchExpenseSchemas = {
         branchId: id,
         amount: money,
         billId: z.string().trim().min(1).max(80),
-        assignedDate: dateString,
-        paidDate: dateString,
+        assignedDate: nonFutureDateString,
+        paidDate: nonFutureDateString,
         month,
         year: z.coerce.number().int().min(2023).max(2100),
     }),
@@ -72,7 +72,7 @@ export const branchExpenseSchemas = {
         branchId: id,
         invoiceId: z.string().trim().min(1).max(80),
         amount: money,
-        date: dateString,
+        date: nonFutureDateString,
         month,
         year: z.coerce.number().int().min(2023).max(2100),
     }),
@@ -81,7 +81,7 @@ export const branchExpenseSchemas = {
         itemName: z.string().trim().min(1).max(160),
         invoiceId: z.string().trim().min(1).max(80),
         price: money,
-        date: dateString,
+        date: nonFutureDateString,
         ...taxFields,
         year: z.coerce.number().int().min(2023).max(2100),
     }),
@@ -90,7 +90,7 @@ export const branchExpenseSchemas = {
         itemName: z.string().trim().min(1).max(160),
         invoiceId: z.string().trim().min(1).max(80),
         price: money,
-        date: dateString,
+        date: nonFutureDateString,
         ...taxFields,
         year: z.coerce.number().int().min(2023).max(2100),
     }),
@@ -99,7 +99,7 @@ export const branchExpenseSchemas = {
         itemName: z.string().trim().min(1).max(160),
         voucherId: z.string().trim().min(1).max(80),
         price: money,
-        date: dateString,
+        date: nonFutureDateString,
         ...taxFields,
         paymentMethod: z.enum(["ONLINE", "CASH"]),
         year: z.coerce.number().int().min(2023).max(2100),
