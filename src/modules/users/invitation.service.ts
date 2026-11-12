@@ -404,7 +404,14 @@ export async function revoke(
     return { id: invitation.id, status: UserInvitationStatus.REVOKED };
 }
 
+function assertInvitationToken(rawToken: string) {
+    if (!/^[A-Za-z0-9_-]{43}$/.test(rawToken)) {
+        throw new ApiError(HTTP_STATUS.NOT_FOUND, "This invitation link is invalid.");
+    }
+}
+
 export async function getPublicInvitation(rawToken: string) {
+    assertInvitationToken(rawToken);
     const tokenHash = hashToken(rawToken);
     let invitation = await prisma.userInvitation.findUnique({
         where: { tokenHash },
@@ -426,12 +433,6 @@ export async function getPublicInvitation(rawToken: string) {
         return {
             valid: false,
             status: invitation.status,
-            invitedName: invitation.invitedName,
-            email: invitation.email,
-            role: invitation.role,
-            branches: invitation.branches.map(({ branch }) => branch),
-            invitedBy: { name: invitation.invitedBy.name },
-            expiresAt: invitation.expiresAt,
         };
     }
     return {
@@ -451,6 +452,7 @@ export async function accept(
     input: AcceptInvitationInput,
     meta?: { ip?: string; userAgent?: string },
 ) {
+    assertInvitationToken(rawToken);
     const tokenHash = hashToken(rawToken);
     const now = new Date();
     const passwordHash = await bcrypt.hash(input.password, 12);

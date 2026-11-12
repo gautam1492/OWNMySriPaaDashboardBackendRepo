@@ -1,9 +1,7 @@
-
 import express from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import helmet from "helmet";
-import rateLimit from "express-rate-limit";
 import { pinoHttp } from "pino-http";
 import { corsOrigins, env } from "./config/env.js";
 import { logger } from "./config/logger.js";
@@ -73,16 +71,6 @@ app.use(
                 },
             }),
         },
-    }),
-);
-
-app.use(
-    "/api/v1/auth",
-    rateLimit({
-        windowMs: 15 * 60 * 1000,
-        limit: 30,
-        standardHeaders: "draft-8",
-        legacyHeaders: false,
     }),
 );
 

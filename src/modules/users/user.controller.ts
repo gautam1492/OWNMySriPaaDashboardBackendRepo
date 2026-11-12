@@ -56,14 +56,18 @@ export async function revokeInvitation(req: Request, res: Response) {
 export async function getPublicInvitation(req: Request, res: Response) {
     return ApiResponse.success(
         res,
-        await invitationService.getPublicInvitation(String(req.params.token)),
+        await invitationService.getPublicInvitation(String(req.params.token ?? req.body.token)),
     );
 }
 
 export async function acceptInvitation(req: Request, res: Response) {
     return ApiResponse.success(
         res,
-        await invitationService.accept(String(req.params.token), req.body, getRequestMeta(req)),
+        await invitationService.accept(
+            String(req.params.token ?? req.body.token),
+            req.body,
+            getRequestMeta(req),
+        ),
         "Invitation accepted. You can now sign in.",
         HTTP_STATUS.CREATED,
     );

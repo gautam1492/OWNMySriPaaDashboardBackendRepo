@@ -13,14 +13,34 @@ import {
 } from "./auth.validator.js";
 
 const router = Router();
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 30,
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+    skipSuccessfulRequests: true,
+});
+const refreshLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 300,
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+});
 const passwordResetLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 5,
     standardHeaders: "draft-8",
     legacyHeaders: false,
 });
+const sessionLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    limit: 300,
+    keyGenerator: (req) => req.user!.id,
+    standardHeaders: "draft-8",
+    legacyHeaders: false,
+});
 
-router.post("/login", validate(loginSchema), asyncHandler(authController.login));
+router.post("/login", loginLimiter, validate(loginSchema), asyncHandler(authController.login));
 router.post(
     "/forgot-password",
     passwordResetLimiter,
@@ -35,25 +55,21 @@ router.post(
 );
 
 // Refresh uses the HttpOnly cookie; no token is accepted in the request body.
-router.post("/refresh", asyncHandler(authController.refresh));
+router.post("/refresh", refreshLimiter, asyncHandler(authController.refresh));
 
 // Logout also works when the access token has expired or is missing.
 router.post("/logout", asyncHandler(authController.logout));
-router.get("/me", authenticate, asyncHandler(authController.me));
-router.get("/sessions", authenticate, asyncHandler(authController.sessions));
-router.post("/sessions/revoke-others", authenticate, asyncHandler(authController.revokeOtherSessions));
-router.post("/sessions/revoke-all", authenticate, asyncHandler(authController.revokeAllSessions));
-router.delete("/sessions/:sessionId", authenticate, asyncHandler(authController.revokeSession));
-router.get("/profile", authenticate, asyncHandler(authController.profile));
-router.patch(
-    "/profile",
-    authenticate,
-    validate(profilePatchSchema),
-    asyncHandler(authController.updateProfile),
-);
+// Routine session/profile traffic has a separate, per-user budget.
+router.use(authenticate, sessionLimiter);
+router.get("/me", asyncHandler(authController.me));
+router.get("/sessions", asyncHandler(authController.sessions));
+router.post("/sessions/revoke-others", asyncHandler(authController.revokeOtherSessions));
+router.post("/sessions/revoke-all", asyncHandler(authController.revokeAllSessions));
+router.delete("/sessions/:sessionId", asyncHandler(authController.revokeSession));
+router.get("/profile", asyncHandler(authController.profile));
+router.patch("/profile", validate(profilePatchSchema), asyncHandler(authController.updateProfile));
 router.post(
     "/change-password",
-    authenticate,
     validate(passwordSchema),
     asyncHandler(authController.changePassword),
 );

@@ -46,7 +46,7 @@ function branchList(branchNames: string[]) {
 
 export async function sendUserInvitation(details: InvitationEmailDetails) {
     if (!details.token) throw new Error("Invitation token is required.");
-    const url = `${env.FRONTEND_URL.replace(/\/$/, "")}/accept-invitation/${encodeURIComponent(details.token)}`;
+    const url = `${env.FRONTEND_URL.replace(/\/$/, "")}/accept-invitation#${encodeURIComponent(details.token)}`;
     const name = escapeHtml(details.invitedName);
     const role = escapeHtml(details.roleName.replaceAll("_", " "));
     const inviter = escapeHtml(details.inviterName);

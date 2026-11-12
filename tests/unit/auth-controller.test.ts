@@ -13,7 +13,10 @@ const { cookies, authService } = vi.hoisted(() => ({
         changePassword: vi.fn(),
         accessTokenMaxAgeMs: vi.fn(() => 900_000),
         refreshTokenMaxAgeMs: vi.fn(() => 604_800_000),
-        decodeSessionIdentityAllowingExpiry: vi.fn(() => ({ userId: "user-1", sessionId: "session-1" })),
+        decodeSessionIdentityAllowingExpiry: vi.fn(() => ({
+            userId: "user-1",
+            sessionId: "session-1",
+        })),
     },
 }));
 
@@ -57,7 +60,10 @@ describe("auth controller cookies", () => {
         vi.clearAllMocks();
         authService.accessTokenMaxAgeMs.mockReturnValue(900_000);
         authService.refreshTokenMaxAgeMs.mockReturnValue(604_800_000);
-        authService.decodeSessionIdentityAllowingExpiry.mockReturnValue({ userId: "user-1", sessionId: "session-1" });
+        authService.decodeSessionIdentityAllowingExpiry.mockReturnValue({
+            userId: "user-1",
+            sessionId: "session-1",
+        });
     });
 
     it("login sets both auth cookies and never returns tokens in the body", async () => {
@@ -126,31 +132,38 @@ describe("auth controller cookies", () => {
         const res = makeRes();
         await logout({ cookies: { sripaa_refresh_token: "refresh-1" } } as never, asRes(res));
 
-        expect(authService.logout).toHaveBeenCalledWith("refresh-1", {}, {
-            userId: "user-1",
-            sessionId: "session-1",
-        });
+        expect(authService.logout).toHaveBeenCalledWith(
+            "refresh-1",
+            {},
+            {
+                userId: "user-1",
+                sessionId: "session-1",
+            },
+        );
         expect(cookies.cleared.map((c) => c.name).sort()).toEqual([
             "sripaa_access_token",
             "sripaa_refresh_token",
         ]);
     });
 
-    it("change-password clears both cookies to force re-login", async () => {
+    it("change-password preserves the current session", async () => {
         const { changePassword } = await import("../../src/modules/auth/auth.controller.js");
         const res = makeRes();
         await changePassword(
             {
                 user: { id: "user-1" },
+                authSessionId: "session-1",
                 body: { currentPassword: "old-password", newPassword: "new-password12" },
             } as never,
             asRes(res),
         );
 
-        expect(authService.changePassword).toHaveBeenCalledOnce();
-        expect(cookies.cleared.map((c) => c.name).sort()).toEqual([
-            "sripaa_access_token",
-            "sripaa_refresh_token",
-        ]);
+        expect(authService.changePassword).toHaveBeenCalledWith(
+            "user-1",
+            "session-1",
+            "old-password",
+            "new-password12",
+        );
+        expect(cookies.cleared).toEqual([]);
     });
 });

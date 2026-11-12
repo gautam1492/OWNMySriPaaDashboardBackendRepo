@@ -17,6 +17,8 @@ import {
 } from "./user.validator.js";
 import {
     acceptInvitationSchema,
+    acceptInvitationWithTokenSchema,
+    inspectInvitationSchema,
     createInvitationSchema,
     invitationListQuery,
 } from "./invitation.validator.js";
@@ -96,12 +98,29 @@ export const roleRoutes = Router();
 roleRoutes.get("/", ...manager, asyncHandler(userController.listRoles));
 
 export const userInvitationRoutes = Router();
+userInvitationRoutes.use((_req, res, next) => {
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Referrer-Policy", "no-referrer");
+    next();
+});
 const invitationPublicLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     limit: 30,
     standardHeaders: "draft-8",
     legacyHeaders: false,
 });
+userInvitationRoutes.post(
+    "/inspect",
+    invitationPublicLimiter,
+    validate(inspectInvitationSchema),
+    asyncHandler(userController.getPublicInvitation),
+);
+userInvitationRoutes.post(
+    "/accept",
+    invitationPublicLimiter,
+    validate(acceptInvitationWithTokenSchema),
+    asyncHandler(userController.acceptInvitation),
+);
 userInvitationRoutes.get(
     "/:token",
     invitationPublicLimiter,
